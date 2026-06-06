@@ -12,8 +12,8 @@ bin/
 build/
 obj/
 
-# Data
-data/
+# Special data
+data/setup_cod_paralelos/
 
 # ====================================================================
 # Neovim & Tooling (LSP / Formatting / Auto-save)
