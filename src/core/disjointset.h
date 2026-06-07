@@ -7,15 +7,15 @@
 #include "graph.h"
 
 typedef struct {
-  NodeId *parents;
-  unsigned int *ranks;
-  unsigned int nodesCount;
-  unsigned int componentsCount;  
+  NodeId *parentIds;
+  unsigned int *rankValues;
+  unsigned int nodeCount;
+  unsigned int componentCount;
 } DisjointSetPool;
 
 bool DisjointSet_Initialize(DisjointSetPool *pool, const unsigned int nodeCount);
 void DisjointSet_Finalize(DisjointSetPool *pool);
-NodeId DisjointSet_Find(DisjointSetPool *pool, const NodeId target);
-bool DisjointSet_Union(DisjointSetPool *pool, const NodeId first, const NodeId second);
+NodeId DisjointSet_Find(DisjointSetPool *pool, const NodeId nodeId);
+bool DisjointSet_Union(DisjointSetPool *pool, const NodeId firstNodeId, const NodeId secondNodeId);
 
 #endif

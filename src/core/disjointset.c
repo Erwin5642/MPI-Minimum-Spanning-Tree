@@ -1,72 +1,81 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <errno.h>
 
 #include "disjointset.h"
 
 bool DisjointSet_Initialize(DisjointSetPool *pool, const unsigned int nodeCount) {
-  pool->nodesCount = nodeCount;
-  pool->componentsCount = nodeCount;
-  pool->ranks = calloc(nodeCount, sizeof(unsigned int));
-  pool->parents = malloc(sizeof(NodeId) * nodeCount);
+  pool->nodeCount = nodeCount;
+  pool->componentCount = nodeCount;
+  pool->rankValues = calloc(nodeCount, sizeof(unsigned int));
+  pool->parentIds = malloc(sizeof(NodeId) * nodeCount);
 
-  if (!pool->ranks || !pool->parents) return false; 
+  if (!pool->rankValues || !pool->parentIds) {
+    fprintf(stderr, "Erro: DisjointSet: falha ao alocar memória: %s\n", strerror(errno));
+    free(pool->rankValues);
+    free(pool->parentIds);
+    pool->parentIds = pool->rankValues = NULL;
+    return false;
+  }
 
-  NodeId *parents = pool->parents;
+  NodeId *parentIds = pool->parentIds;
 
-  for (unsigned int i = 0; i < nodeCount; i++) {
-    parents[i] = i;
+  for (unsigned int nodeId = 0; nodeId < nodeCount; nodeId++) {
+    parentIds[nodeId] = nodeId;
   }
 
   return true;
 }
 
 void DisjointSet_Finalize(DisjointSetPool *pool) {
-  pool->nodesCount = 0;
-  pool->componentsCount = 0;
-  free(pool->ranks);
-  free(pool->parents);
-  pool->parents = pool->ranks = NULL;
+  pool->nodeCount = 0;
+  pool->componentCount = 0;
+  free(pool->rankValues);
+  free(pool->parentIds);
+  pool->parentIds = pool->rankValues = NULL;
 }
 
-NodeId DisjointSet_Find(DisjointSetPool *pool, const NodeId target) {
-  NodeId currentNode = target;
-  NodeId *parent = pool->parents;
+NodeId DisjointSet_Find(DisjointSetPool *pool, const NodeId nodeId) {
+  NodeId currentNodeId = nodeId;
+  NodeId *parentIds = pool->parentIds;
 
-  while (currentNode != parent[currentNode]) {
-    parent[currentNode] = parent[parent[currentNode]];
-    currentNode = parent[currentNode];
+  while (currentNodeId != parentIds[currentNodeId]) {
+    parentIds[currentNodeId] = parentIds[parentIds[currentNodeId]];
+    currentNodeId = parentIds[currentNodeId];
   }
 
-  return currentNode;
+  return currentNodeId;
 }
 
-bool DisjointSet_Union(DisjointSetPool *pool, const NodeId first, const NodeId second) {
-  if (first >= pool->nodesCount || second >= pool->nodesCount) {
-        fprintf(stderr, "CRITICAL: Invalid NodeId passed to Union: %u, %u\n", first, second);
-        exit(EXIT_FAILURE);
-    }
-  NodeId rootFirst = DisjointSet_Find(pool, first);
-  NodeId rootSecond = DisjointSet_Find(pool, second);
+bool DisjointSet_Union(DisjointSetPool *pool, const NodeId firstNodeId, const NodeId secondNodeId) {
+  if (firstNodeId >= pool->nodeCount || secondNodeId >= pool->nodeCount) {
+    fprintf(stderr, "Erro: DisjointSet: NodeId inválido passado para Union: %u, %u\n", firstNodeId, secondNodeId);
+    return false;
+  }
 
-  if (rootFirst == rootSecond)
+  NodeId firstRootId = DisjointSet_Find(pool, firstNodeId);
+  NodeId secondRootId = DisjointSet_Find(pool, secondNodeId);
+
+  if (firstRootId == secondRootId)
     return false;
 
-  NodeId *parents = pool->parents;
-  unsigned int *ranks = pool->ranks;
+  NodeId *parentIds = pool->parentIds;
+  unsigned int *rankValues = pool->rankValues;
 
-  if (ranks[rootFirst] < ranks[rootSecond]) {
-    NodeId temp = rootFirst;
-    rootFirst = rootSecond;
-    rootSecond = temp;
+  if (rankValues[firstRootId] < rankValues[secondRootId]) {
+    NodeId tempRootId = firstRootId;
+    firstRootId = secondRootId;
+    secondRootId = tempRootId;
   }
 
-  parents[rootSecond] = rootFirst;
+  parentIds[secondRootId] = firstRootId;
 
-  if (ranks[rootFirst] == ranks[rootSecond]) {
-    ranks[rootFirst]++;
+  if (rankValues[firstRootId] == rankValues[secondRootId]) {
+    rankValues[firstRootId]++;
   }
 
-  pool->componentsCount--;
+  pool->componentCount--;
 
   return true;
 }

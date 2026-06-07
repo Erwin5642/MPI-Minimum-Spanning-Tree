@@ -1,44 +1,46 @@
 #include <errno.h>
-#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
 #include "stream.h"
 
-Edge* Stream_Map(const char *filename, size_t *fileSize) {
-    int fd = open(filename, O_RDONLY);
-    if (fd == -1) {
-        fprintf(stderr, "Error: could not open file '%s': %s\n", filename, strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+Edge *Stream_Map(const char *graphFilePath, size_t *fileSizeBytes) {
+  int fileDescriptor = open(graphFilePath, O_RDONLY);
+  if (fileDescriptor == -1) {
+    fprintf(stderr, "Erro: Stream: não foi possível abrir o arquivo '%s': %s\n", graphFilePath, strerror(errno));
+    return NULL;
+  }
 
-    struct stat st;
-    if (fstat(fd, &st) == -1) {
-        fprintf(stderr, "Error: could not stat file '%s': %s\n", filename, strerror(errno));
-        close(fd);
-        exit(EXIT_FAILURE);
-    }
+  struct stat fileStat;
+  if (fstat(fileDescriptor, &fileStat) == -1) {
+    fprintf(stderr, "Erro: Stream: não foi possível obter informações do arquivo '%s': %s\n", graphFilePath,
+            strerror(errno));
+    close(fileDescriptor);
+    return NULL;
+  }
 
-    *fileSize = st.st_size;
+  *fileSizeBytes = fileStat.st_size;
 
-    if (*fileSize == 0) {
-        fprintf(stderr, "Error: file '%s' is empty\n", filename);
-        close(fd);
-        exit(EXIT_FAILURE);
-    }
+  if (*fileSizeBytes == 0) {
+    fprintf(stderr, "Erro: Stream: o arquivo '%s' está vazio\n", graphFilePath);
+    close(fileDescriptor);
+    errno = EINVAL;
+    return NULL;
+  }
 
-    Edge *data = mmap(NULL, *fileSize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-    close(fd);
+  Edge *edgeList = mmap(NULL, *fileSizeBytes, PROT_READ | PROT_WRITE, MAP_PRIVATE, fileDescriptor, 0);
+  close(fileDescriptor);
 
-    if (data == MAP_FAILED) {
-        fprintf(stderr, "Error: mmap failed for '%s': %s\n", filename, strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+  if (edgeList == MAP_FAILED) {
+    fprintf(stderr, "Erro: Stream: falha no mmap do arquivo '%s': %s\n", graphFilePath, strerror(errno));
+    return NULL;
+  }
 
-    return data;
+  return edgeList;
 }
 
-void Stream_Unmap(Edge *data, size_t fileSize) {
-    munmap(data, fileSize);
+void Stream_Unmap(Edge *edgeList, size_t fileSizeBytes) {
+  munmap(edgeList, fileSizeBytes);
 }

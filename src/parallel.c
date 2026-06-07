@@ -1,178 +1,117 @@
-#include <limits.h>
+#include <errno.h>
 #include <mpi.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <string.h>
 
-#include "core/disjointset.h"
 #include "core/graph.h"
+#include "core/mst.h"
+#include "io/stream.h"
 #include "mpi/types.h"
 
-void reduceMinEdge(void *in, void *out, int *length, MPI_Datatype *datatype) {
-  Edge *inEdgeList = (Edge *)in;
-  Edge *outEdgeList = (Edge *)out;
-  unsigned int nodeCount = (unsigned int)*length;
-
-  for (NodeId root = 0; root < nodeCount; root++) {
-    outEdgeList[root] = Edge_MinEdge(inEdgeList[root], outEdgeList[root]);
-  }
-}
-
-void ResetComponentMinEdges(Edge *componentMinEdges, const unsigned int nodeCount) {
-  for (NodeId root = 0; root < nodeCount; root++) {
-    componentMinEdges[root] = NOTHING;
-  }
-}
-
-void ComputeComponentMinEdges(Edge *edgeList, unsigned int *edgeCount, Edge *componentMinEdges,
-                              DisjointSetPool *components) {
-  unsigned int updatedEdgeCount = 0;
-
-  for (EdgeId edgeId = 0; edgeId < *edgeCount; edgeId++) {
-    const Edge edge = edgeList[edgeId];
-
-    const NodeId rootU = DisjointSet_Find(components, edge.source);
-    const NodeId rootV = DisjointSet_Find(components, edge.destination);
-
-    if (rootU == rootV)
-      continue;
-
-    edgeList[updatedEdgeCount++] = edge;
-
-    Edge *componentMinEdgeOnU = &componentMinEdges[rootU];
-    Edge *componentMinEdgeOnV = &componentMinEdges[rootV];
-
-    if (edge.weight < componentMinEdgeOnU->weight) {
-      *componentMinEdgeOnU = edge;
-    }
-    if (edge.weight < componentMinEdgeOnV->weight) {
-      *componentMinEdgeOnV = edge;
-    }
-  }
-  *edgeCount = updatedEdgeCount;
-}
-
-void ApplyGlobalComponentMinEdges(Edge *componentMinEdges, DisjointSetPool *components, Edge *outMST,
-                                  unsigned int *mstCount, const unsigned int globalNodeCount) {
-  for (NodeId root = 0; root < globalNodeCount; root++) {
-    const Edge edge = componentMinEdges[root];
-
-    if (edge.weight == NOTHING.weight)
-      continue;
-
-    if (DisjointSet_Union(components, edge.source, edge.destination)) {
-      outMST[(*mstCount)++] = edge;
-    }
-  }
-}
-
-void ComputeMST(Edge *edgeList, unsigned int *edgeCount, const unsigned int globalNodeCount, Edge *outMST,
-                unsigned int *mstCount, int worldRank) {
-  DisjointSetPool components;
-  DisjointSet_Initialize(&components, globalNodeCount);
-
-  Edge *componentMinEdges = malloc(sizeof(Edge) * globalNodeCount);
-  if (!componentMinEdges) {
-    fprintf(stderr, "Error: failed to allocate componentMinEdges\n");
+Edge *Parallel_DistributeEdges(Edge *globalEdgeList, unsigned int edgeCount, int mpiRank, int mpiWorldSize,
+                               unsigned int *localEdgeCount) {
+  int *scatterCounts = malloc(sizeof(int) * mpiWorldSize);
+  int *scatterDisplacements = malloc(sizeof(int) * mpiWorldSize);
+  if (!scatterCounts || !scatterDisplacements) {
+    fprintf(stderr, "Erro: Parallel: falha ao alocar buffers de distribuição: %s\n", strerror(errno));
+    free(scatterCounts);
+    free(scatterDisplacements);
     MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
   }
 
-  MPI_Op reduceMinEdgeOp;
-  MPI_Op_create(reduceMinEdge, 1, &reduceMinEdgeOp);
+  int baseEdgeCount = edgeCount / mpiWorldSize;
+  int remainderEdgeCount = edgeCount % mpiWorldSize;
+  int edgeOffset = 0;
 
-  while (components.componentsCount > 1) {
-    ResetComponentMinEdges(componentMinEdges, globalNodeCount);
-
-    ComputeComponentMinEdges(edgeList, edgeCount, componentMinEdges, &components);
-    MPI_Allreduce(MPI_IN_PLACE, componentMinEdges, (int)globalNodeCount, MPI_EDGE_TYPE, reduceMinEdgeOp,
-                  MPI_COMM_WORLD);
-
-    if (worldRank == 0) {
-      ApplyGlobalComponentMinEdges(componentMinEdges, &components, outMST, mstCount, globalNodeCount);
-    }
-
-    MPI_Bcast(&components.componentsCount, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-    MPI_Bcast(components.parents, globalNodeCount, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-    MPI_Bcast(components.ranks, globalNodeCount, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+  for (int rankId = 0; rankId < mpiWorldSize; rankId++) {
+    scatterCounts[rankId] = baseEdgeCount + (rankId < remainderEdgeCount ? 1 : 0);
+    scatterDisplacements[rankId] = edgeOffset;
+    edgeOffset += scatterCounts[rankId];
   }
 
-  MPI_Op_free(&reduceMinEdgeOp);
-  DisjointSet_Finalize(&components);
-  free(componentMinEdges);
+  *localEdgeCount = scatterCounts[mpiRank];
+  Edge *localEdgeList = malloc(sizeof(Edge) * *localEdgeCount);
+  if (!localEdgeList) {
+    fprintf(stderr, "Erro: Parallel: falha ao alocar buffer local de arestas: %s\n", strerror(errno));
+    free(scatterCounts);
+    free(scatterDisplacements);
+    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+  }
+
+  MPI_Scatterv(globalEdgeList, scatterCounts, scatterDisplacements, MPI_EDGE_TYPE, localEdgeList,
+               scatterCounts[mpiRank], MPI_EDGE_TYPE, 0, MPI_COMM_WORLD);
+
+  free(scatterCounts);
+  free(scatterDisplacements);
+
+  return localEdgeList;
 }
 
 int main(int argc, char **argv) {
-  char *filename = argv[1];
+  if (argc < 4) {
+    fprintf(stderr, "Uso: %s <arquivo_grafo> <numero_de_nos> <numero_de_arrestas>\n", argv[0]);
+    exit(EXIT_FAILURE);
+  }
+
+  char *graphFilePath = argv[1];
   unsigned int nodeCount = atoi(argv[2]);
+  unsigned int edgeCount = atoi(argv[3]);
 
   MPI_Init(&argc, &argv);
 
   MPI_Register_Datatypes();
 
-  int worldRank, worldSize;
-  MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
-  MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
+  int mpiRank, mpiWorldSize;
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
+  MPI_Comm_size(MPI_COMM_WORLD, &mpiWorldSize);
 
-  MPI_File file;
-
-  MPI_File_open(MPI_COMM_WORLD, filename, MPI_MODE_RDONLY, MPI_INFO_NULL, &file);
-
-  MPI_Offset totalFileSizeBytes;
-  MPI_File_get_size(file, &totalFileSizeBytes);
-  unsigned int globalEdgeCount = totalFileSizeBytes / sizeof(Edge);
-
-  unsigned int localEdgeCount = globalEdgeCount / worldSize;
-
-  MPI_Offset offset = (MPI_Offset)worldRank * localEdgeCount * sizeof(Edge);
-
-  if (worldRank == worldSize - 1) {
-    localEdgeCount += (globalEdgeCount % worldSize);
+  Edge *globalEdgeList = NULL;
+  size_t fileSizeBytes;
+  if (mpiRank == 0) {
+    globalEdgeList = Stream_Map(graphFilePath, &fileSizeBytes);
+    if (!globalEdgeList)
+      MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
   }
 
-  Edge *edgeList = malloc(sizeof(Edge) * localEdgeCount);
-  if (!edgeList) {
-    fprintf(stderr, "Error: failed to allocate edgeList\n");
+  unsigned int localEdgeCount;
+  Edge *localEdgeList = Parallel_DistributeEdges(globalEdgeList, edgeCount, mpiRank, mpiWorldSize, &localEdgeCount);
+
+  Edge *mstEdgeList = malloc(sizeof(Edge) * (nodeCount - 1));
+  if (!mstEdgeList) {
+    fprintf(stderr, "Erro: Parallel: falha ao alocar buffer da árvore geradora mínima: %s\n", strerror(errno));
     MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
   }
-
-  MPI_File_read_at(file, offset, edgeList, localEdgeCount * sizeof(Edge), MPI_BYTE, MPI_STATUS_IGNORE);
-
-  MPI_File_close(&file);
-
-  Edge *outMST = malloc(sizeof(Edge) * (nodeCount - 1));
-  if (!outMST) {
-    fprintf(stderr, "Error: failed to allocate outMST\n");
-    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-  }
-
   unsigned int mstCount = 0;
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  double startClock = MPI_Wtime();
+  double startTime = MPI_Wtime();
 
-  ComputeMST(edgeList, &localEdgeCount, nodeCount, outMST, &mstCount, worldRank);
+  if (!MST_ComputeParallel(localEdgeList, &localEdgeCount, nodeCount, mstEdgeList, &mstCount, MPI_COMM_WORLD))
+    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
 
-  double endClock = MPI_Wtime();
-  double cpuTimeUsed = endClock - startClock;
-  if (worldRank == 0) {
-    long double sum = 0;
-    printf("===== MST Computed (Parallel) =====\n");
-    for (unsigned int i = 0; i < mstCount; i++) {
-      sum += outMST[i].weight;
+  double endTime = MPI_Wtime();
+  double elapsedSeconds = endTime - startTime;
+  if (mpiRank == 0) {
+    long double mstWeightSum = 0;
+    printf("===== MST Computada (Paralela) =====\n");
+    for (unsigned int mstEdgeId = 0; mstEdgeId < mstCount; mstEdgeId++) {
+      mstWeightSum += mstEdgeList[mstEdgeId].weight;
     }
 
-    printf("Total MST Edge Count: %u\n", mstCount);
-    printf("Expected Target Count: %u\n", nodeCount - 1);
-    printf("Sum: %Lf\n", sum);
-    printf("Execution Time: %f seconds\n", cpuTimeUsed);
-    printf("Time resolution: %e\n", MPI_Wtick());
+    printf("Total de arestas na MST: %u\n", mstCount);
+    printf("Contagem esperada: %u\n", nodeCount - 1);
+    printf("Soma: %Lf\n", mstWeightSum);
+    printf("Tempo de execução: %f segundos\n", elapsedSeconds);
+    printf("Resolução temporal: %e\n", MPI_Wtick());
   }
 
-  free(edgeList);
-  free(outMST);
+  if (mpiRank == 0) {
+    Stream_Unmap(globalEdgeList, fileSizeBytes);
+  }
+  free(localEdgeList);
+  free(mstEdgeList);
   MPI_Free_Datatypes();
   MPI_Finalize();
   return 0;
