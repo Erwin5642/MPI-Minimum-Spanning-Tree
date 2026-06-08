@@ -14,8 +14,10 @@ while IFS= read -r HOST || [ -n "$HOST" ]; do
    ssh-copy-id -i "$KEY_PATH.pub" "$USER@$HOST"
 
    ssh "$USER@$HOST" "mkdir -p $WORKSPACE_DIR"
-
+   
    [ -d "src" ] && [ -f Makefile ] && rsync -avz src Makefile "$USER@$HOST:$WORKSPACE_DIR/"
+
+   ssh "$USER@$HOST" "cd $WORKSPACE_DIR && make parallel"
 
 done < "$HOSTS_FILE"
 
