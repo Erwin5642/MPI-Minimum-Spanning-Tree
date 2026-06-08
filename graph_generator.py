@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     try:
         node_count = int(sys.argv[1])
-        edge_count = int(node_count * 2)
+        edge_count = int(node_count * 80)
         Graph_generate_sparse(node_count, edge_count, "graph.bin")
     except ValueError:
         print("Erro: Graph: forneça um número inteiro válido para a quantidade de nós.")
