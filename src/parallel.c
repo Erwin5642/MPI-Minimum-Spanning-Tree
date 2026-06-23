@@ -77,6 +77,10 @@ int main(int argc, char **argv) {
   unsigned int localEdgeCount;
   Edge *localEdgeList = Parallel_DistributeEdges(globalEdgeList, edgeCount, mpiRank, mpiWorldSize, &localEdgeCount);
 
+  if (mpiRank == 0) {
+    Stream_Unmap(globalEdgeList, fileSizeBytes);
+  }
+
   Edge *mstEdgeList = malloc(sizeof(Edge) * (nodeCount - 1));
   if (!mstEdgeList) {
     fprintf(stderr, "Erro: Parallel: falha ao alocar buffer da árvore geradora mínima: %s\n", strerror(errno));
@@ -107,9 +111,6 @@ int main(int argc, char **argv) {
     printf("Resolução temporal: %e\n", MPI_Wtick());
   }
 
-  if (mpiRank == 0) {
-    Stream_Unmap(globalEdgeList, fileSizeBytes);
-  }
   free(localEdgeList);
   free(mstEdgeList);
   MPI_Free_Datatypes();
