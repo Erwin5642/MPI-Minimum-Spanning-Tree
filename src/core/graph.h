@@ -5,6 +5,9 @@
 #include <float.h>
 #include <limits.h>
 
+#define GRAPH_NODE_ID_MAX UINT_MAX
+#define GRAPH_WEIGHT_MAX DBL_MAX
+
 typedef unsigned int NodeId;
 typedef unsigned int EdgeId;
 typedef double Weight;
@@ -15,8 +18,8 @@ typedef struct {
   Weight weight;
 } Edge;
 
-#define NOTHING ((Edge){UINT_MAX, UINT_MAX, DBL_MAX})
+#define GRAPH_NOTHING ((Edge){GRAPH_NODE_ID_MAX, GRAPH_NODE_ID_MAX, GRAPH_WEIGHT_MAX})
 
-Edge Edge_MinEdge(const Edge first, const Edge second);
+Edge Edge_MinEdge(const Edge firstEdge, const Edge secondEdge);
 
 #endif
