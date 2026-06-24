@@ -1,50 +1,87 @@
 #include <errno.h>
 #include <mpi.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "core/graph.h"
-#include "core/mst.h"
-#include "io/stream.h"
+#include "mpi/mst_mpi.h"
 #include "mpi/types.h"
 
-Edge *Parallel_DistributeEdges(Edge *globalEdgeList, unsigned int edgeCount, int mpiRank, int mpiWorldSize,
-                               unsigned int *localEdgeCount) {
-  int *scatterCounts = malloc(sizeof(int) * mpiWorldSize);
-  int *scatterDisplacements = malloc(sizeof(int) * mpiWorldSize);
-  if (!scatterCounts || !scatterDisplacements) {
-    fprintf(stderr, "Erro: Parallel: falha ao alocar buffers de distribuição: %s\n", strerror(errno));
-    free(scatterCounts);
-    free(scatterDisplacements);
-    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-  }
-
-  int baseEdgeCount = edgeCount / mpiWorldSize;
-  int remainderEdgeCount = edgeCount % mpiWorldSize;
-  int edgeOffset = 0;
+static void Parallel_ComputeCountsAndDisplacements(unsigned int edgeCount, int mpiWorldSize, unsigned int *counts,
+                                                   unsigned int *displacements) {
+  unsigned int baseEdgeCount = edgeCount / mpiWorldSize;
+  unsigned int remainderEdgeCount = edgeCount % mpiWorldSize;
+  unsigned int edgeOffset = 0;
 
   for (int rankId = 0; rankId < mpiWorldSize; rankId++) {
-    scatterCounts[rankId] = baseEdgeCount + (rankId < remainderEdgeCount ? 1 : 0);
-    scatterDisplacements[rankId] = edgeOffset;
-    edgeOffset += scatterCounts[rankId];
+    counts[rankId] = baseEdgeCount + ((unsigned int)rankId < remainderEdgeCount ? 1 : 0);
+    displacements[rankId] = edgeOffset;
+    edgeOffset += counts[rankId];
   }
+}
 
-  *localEdgeCount = scatterCounts[mpiRank];
-  Edge *localEdgeList = malloc(sizeof(Edge) * *localEdgeCount);
-  if (!localEdgeList) {
-    fprintf(stderr, "Erro: Parallel: falha ao alocar buffer local de arestas: %s\n", strerror(errno));
-    free(scatterCounts);
-    free(scatterDisplacements);
+Edge *Parallel_DistributeEdges(const char *graphFilePath, unsigned int edgeCount, int mpiRank, int mpiWorldSize,
+                               unsigned int *localEdgeCount) {
+  unsigned int *rankEdgeCounts = malloc(sizeof(unsigned int) * mpiWorldSize);
+  unsigned int *rankDisplacements = malloc(sizeof(unsigned int) * mpiWorldSize);
+  if (!rankEdgeCounts || !rankDisplacements) {
+    fprintf(stderr, "Erro: Parallel: falha ao alocar buffers de distribuição: %s\n", strerror(errno));
+    free(rankEdgeCounts);
+    free(rankDisplacements);
     MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
   }
 
-  MPI_Scatterv(globalEdgeList, scatterCounts, scatterDisplacements, MPI_EDGE_TYPE, localEdgeList,
-               scatterCounts[mpiRank], MPI_EDGE_TYPE, 0, MPI_COMM_WORLD);
+  Parallel_ComputeCountsAndDisplacements(edgeCount, mpiWorldSize, rankEdgeCounts, rankDisplacements);
 
-  free(scatterCounts);
-  free(scatterDisplacements);
+  *localEdgeCount = rankEdgeCounts[mpiRank];
+  Edge *localEdgeList = NULL;
+  if (*localEdgeCount > 0) {
+    localEdgeList = malloc(sizeof(Edge) * *localEdgeCount);
+    if (!localEdgeList) {
+      fprintf(stderr, "Erro: Parallel: falha ao alocar buffer local de arestas: %s\n", strerror(errno));
+      free(rankEdgeCounts);
+      free(rankDisplacements);
+      MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    }
+  }
 
+  if (mpiRank == 0) {
+    FILE *graphFile = fopen(graphFilePath, "rb");
+    if (!graphFile) {
+      fprintf(stderr, "Erro: Parallel: falha ao abrir arquivo de grafo: %s\n", strerror(errno));
+      free(localEdgeList);
+      free(rankEdgeCounts);
+      free(rankDisplacements);
+      MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    }
+
+    Edge *readBuffer = malloc(sizeof(Edge) * *localEdgeCount);
+    if (!readBuffer) {
+      fprintf(stderr, "Erro: Parallel: falha ao alocar buffer de leitura em lote: %s\n", strerror(errno));
+      fclose(graphFile);
+      free(localEdgeList);
+      free(rankEdgeCounts);
+      free(rankDisplacements);
+      MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    }
+
+    fread(localEdgeList, sizeof(Edge), rankEdgeCounts[0], graphFile);
+
+    for (int rankId = 1; rankId < mpiWorldSize; rankId++) {
+      fread(readBuffer, sizeof(Edge), rankEdgeCounts[rankId], graphFile);
+      MPI_Send(readBuffer, rankEdgeCounts[rankId], MPI_EDGE_TYPE, rankId, 0, MPI_COMM_WORLD);
+    }
+
+    free(readBuffer);
+    fclose(graphFile);
+  } else {
+    MPI_Recv(localEdgeList, *localEdgeCount, MPI_EDGE_TYPE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  }
+
+  free(rankEdgeCounts);
+  free(rankDisplacements);
   return localEdgeList;
 }
 
@@ -66,20 +103,8 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpiWorldSize);
 
-  Edge *globalEdgeList = NULL;
-  size_t fileSizeBytes;
-  if (mpiRank == 0) {
-    globalEdgeList = Stream_Map(graphFilePath, &fileSizeBytes);
-    if (!globalEdgeList)
-      MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-  }
-
   unsigned int localEdgeCount;
-  Edge *localEdgeList = Parallel_DistributeEdges(globalEdgeList, edgeCount, mpiRank, mpiWorldSize, &localEdgeCount);
-
-  if (mpiRank == 0) {
-    Stream_Unmap(globalEdgeList, fileSizeBytes);
-  }
+  Edge *localEdgeList = Parallel_DistributeEdges(graphFilePath, edgeCount, mpiRank, mpiWorldSize, &localEdgeCount);
 
   Edge *mstEdgeList = malloc(sizeof(Edge) * (nodeCount - 1));
   if (!mstEdgeList) {
@@ -92,8 +117,7 @@ int main(int argc, char **argv) {
 
   double startTime = MPI_Wtime();
 
-  if (!MST_ComputeParallel(localEdgeList, &localEdgeCount, nodeCount, mstEdgeList, &mstCount, MPI_COMM_WORLD))
-    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+  MST_ComputeParallel(localEdgeList, &localEdgeCount, nodeCount, mstEdgeList, &mstCount);
 
   double endTime = MPI_Wtime();
   double elapsedSeconds = endTime - startTime;

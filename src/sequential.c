@@ -5,8 +5,7 @@
 #include <time.h>
 
 #include "core/graph.h"
-#include "core/mst.h"
-#include "io/stream.h"
+#include "mst/mst.h"
 
 int main(int argc, char **argv) {
   if (argc < 4) {
@@ -18,11 +17,6 @@ int main(int argc, char **argv) {
   unsigned int nodeCount = atoi(argv[2]);
   unsigned int edgeCount = atoi(argv[3]);
 
-  size_t fileSizeBytes;
-  Edge *edgeList = Stream_Map(graphFilePath, &fileSizeBytes);
-  if (!edgeList)
-    exit(EXIT_FAILURE);
-
   Edge *mstEdgeList = malloc(sizeof(Edge) * (nodeCount - 1));
   if (!mstEdgeList) {
     fprintf(stderr, "Erro: Sequential: falha ao alocar árvore geradora mínima: %s\n", strerror(errno));
@@ -33,8 +27,7 @@ int main(int argc, char **argv) {
 
   clock_t startTime = clock();
 
-  if (!MST_Compute(edgeList, &edgeCount, nodeCount, mstEdgeList, &mstCount))
-    exit(EXIT_FAILURE);
+  MST_Compute(graphFilePath, edgeCount, nodeCount, mstEdgeList, &mstCount);
 
   clock_t endTime = clock();
   double elapsedSeconds = ((double)(endTime - startTime)) / CLOCKS_PER_SEC;
@@ -51,7 +44,6 @@ int main(int argc, char **argv) {
   printf("Tempo de execução (CPU): %f segundos\n", elapsedSeconds);
 
   free(mstEdgeList);
-  Stream_Unmap(edgeList, fileSizeBytes);
 
   return 0;
 }
