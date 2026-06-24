@@ -11,8 +11,7 @@
 bin/
 build/
 obj/
-
-# Special data
+.tmp/
 data/setup_cod_paralelos/
 
 # ====================================================================
