@@ -35,6 +35,16 @@ Edge *Parallel_DistributeEdges(const char *graphFilePath, unsigned int edgeCount
 
   Parallel_ComputeCountsAndDisplacements(edgeCount, mpiWorldSize, rankEdgeCounts, rankDisplacements);
 
+  if (mpiRank == 0) {
+    printf("===== Distribuicao de arestas =====\n");
+    printf("Total de arestas: %u\n", edgeCount);
+    printf("Numero de ranks: %d\n", mpiWorldSize);
+    for (int rankId = 0; rankId < mpiWorldSize; rankId++) {
+      printf("  Rank %d: %u arestas (offset %u)\n", rankId, rankEdgeCounts[rankId], rankDisplacements[rankId]);
+    }
+    fflush(stdout);
+  }
+
   *localEdgeCount = rankEdgeCounts[mpiRank];
   Edge *localEdgeList = NULL;
   if (*localEdgeCount > 0) {
@@ -67,17 +77,35 @@ Edge *Parallel_DistributeEdges(const char *graphFilePath, unsigned int edgeCount
       MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
 
+    printf("Grafo aberto: %s\n", graphFilePath);
+    printf("Lendo %u arestas locais do rank 0...\n", rankEdgeCounts[0]);
+    fflush(stdout);
+
     fread(localEdgeList, sizeof(Edge), rankEdgeCounts[0], graphFile);
 
     for (int rankId = 1; rankId < mpiWorldSize; rankId++) {
+      printf("Enviando %u arestas para rank %d (offset %u)...\n", rankEdgeCounts[rankId], rankId,
+             rankDisplacements[rankId]);
+      fflush(stdout);
       fread(readBuffer, sizeof(Edge), rankEdgeCounts[rankId], graphFile);
       MPI_Send(readBuffer, rankEdgeCounts[rankId], MPI_EDGE_TYPE, rankId, 0, MPI_COMM_WORLD);
     }
+
+    printf("Distribuicao concluida pelo rank 0.\n");
+    fflush(stdout);
 
     free(readBuffer);
     fclose(graphFile);
   } else {
     MPI_Recv(localEdgeList, *localEdgeCount, MPI_EDGE_TYPE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    printf("[Rank %d] Recebidas %u arestas.\n", mpiRank, *localEdgeCount);
+    fflush(stdout);
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  if (mpiRank == 0) {
+    printf("Todos os ranks receberam suas arestas.\n");
+    fflush(stdout);
   }
 
   free(rankEdgeCounts);
@@ -102,6 +130,11 @@ int main(int argc, char **argv) {
   int mpiRank, mpiWorldSize;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpiWorldSize);
+
+  if (mpiRank == 0) {
+    printf("Iniciando MST paralela: %u nos, %u arestas\n", nodeCount, edgeCount);
+    fflush(stdout);
+  }
 
   unsigned int localEdgeCount;
   Edge *localEdgeList = Parallel_DistributeEdges(graphFilePath, edgeCount, mpiRank, mpiWorldSize, &localEdgeCount);
