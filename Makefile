@@ -3,11 +3,12 @@ BIN_DIR = bin
 SRC_DIR = src
 CC = mpicc
 RUN = mpirun
-TEST_ARGS ?= -np 4
-RUN_ARGS ?= -np 4
+TEST_ARGS ?= --hostfile mpi_hosts
+RUN_ARGS ?= --hostfile mpi_hosts
 TEST_GRAPH = graph.bin 1965206 2769244
 GRAPH = data/setup_cod_paralelos/graph.bin 10000000 800000000
 CFLAGS = -Wall -Wextra -pedantic -g -O2
+MPIRUN_FLAGS = --mca btl_tcp_if_include 172.26.1.0/24
 
 TARGET_SEQ = $(BIN_DIR)/sequential
 TARGET_PAR = $(BIN_DIR)/parallel

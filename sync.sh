@@ -1,6 +1,6 @@
 USER=$(whoami)
 HOSTS_FILE="hosts"
-WORKSPACE_DIR="$HOME/../../local/rgm48935"
+WORKSPACE_DIR="$HOME/../../local/rgm48935/MPI-Minimum-Spanning-Tree"
  
 if [ ! -f "$HOSTS_FILE" ]; then
      echo "Error: $HOSTS_FILE file not found!"
