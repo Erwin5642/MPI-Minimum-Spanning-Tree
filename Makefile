@@ -17,15 +17,13 @@ TARGETS = $(TARGET_SEQ) $(TARGET_PAR)
 OBJS_SEQ = $(BUILD_DIR)/sequential.o \
            $(BUILD_DIR)/core/graph.o \
            $(BUILD_DIR)/core/disjointset.o \
-           $(BUILD_DIR)/core/mst.o \
-           $(BUILD_DIR)/io/stream.o
+           $(BUILD_DIR)/mst/mst.o
 
 OBJS_PAR = $(BUILD_DIR)/parallel.o \
            $(BUILD_DIR)/core/graph.o \
            $(BUILD_DIR)/core/disjointset.o \
-           $(BUILD_DIR)/core/mst.o \
-           $(BUILD_DIR)/core/mst_mpi.o \
-           $(BUILD_DIR)/io/stream.o \
+           $(BUILD_DIR)/mst/mst.o \
+           $(BUILD_DIR)/mpi/mst_mpi.o \
            $(BUILD_DIR)/mpi/types.o
 
 all: $(TARGETS)

@@ -2,21 +2,19 @@
 #define MST_H
 
 #include <stdbool.h>
-#include <mpi.h>
+#include <stdio.h>
 
-#include "disjointset.h"
-#include "graph.h"
+#include "../core/disjointset.h"
+#include "../core/graph.h"
 
 void MST_ResetComponentMinEdges(Edge *componentMinEdges, unsigned int nodeCount);
-void MST_ComputeComponentMinEdges(Edge *edgeList, unsigned int *edgeCount, Edge *componentMinEdges,
+void MST_ComputeComponentMinEdges(FILE *readFile, FILE *writeFile, Edge *readBuffer, Edge *writeBuffer,
+                                  unsigned int *edgeCount, Edge *componentMinEdges,
                                   DisjointSetPool *disjointSetPool);
 void MST_ApplyComponentMinEdges(Edge *componentMinEdges, DisjointSetPool *disjointSetPool, unsigned int nodeCount,
                                 Edge *mstEdgeList, unsigned int *mstCount);
 
-bool MST_Compute(Edge *edgeList, unsigned int *edgeCount, unsigned int nodeCount, Edge *mstEdgeList,
+void MST_Compute(const char *graphFilePath, unsigned int edgeCount, unsigned int nodeCount, Edge *mstEdgeList,
                  unsigned int *mstCount);
-
-bool MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int nodeCount, Edge *mstEdgeList,
-                         unsigned int *mstCount, MPI_Comm comm);
 
 #endif
