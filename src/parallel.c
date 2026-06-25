@@ -1,6 +1,5 @@
 #include <errno.h>
 #include <mpi.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,52 +8,78 @@
 #include "mpi/mst_mpi.h"
 #include "mpi/types.h"
 
-static void Parallel_ComputeCountsAndDisplacements(unsigned int edgeCount, int mpiWorldSize, unsigned int *counts,
-                                                   unsigned int *displacements) {
+#define CHUNK_SIZE_MB 64
+#define CHUNK_EDGES ((CHUNK_SIZE_MB * 1024 * 1024) / sizeof(Edge))
+
+void Parallel_ComputeCounts(unsigned int edgeCount, int mpiWorldSize, unsigned int *counts) {
   unsigned int baseEdgeCount = edgeCount / mpiWorldSize;
   unsigned int remainderEdgeCount = edgeCount % mpiWorldSize;
-  unsigned int edgeOffset = 0;
 
   for (int rankId = 0; rankId < mpiWorldSize; rankId++) {
     counts[rankId] = baseEdgeCount + ((unsigned int)rankId < remainderEdgeCount ? 1 : 0);
-    displacements[rankId] = edgeOffset;
-    edgeOffset += counts[rankId];
   }
+}
+
+void Parallel_SendEdgesToRankAsync(FILE *graphFile, int rankId, unsigned int edgeCount) {
+  Edge *buffers[2] = {malloc(sizeof(Edge) * CHUNK_EDGES), malloc(sizeof(Edge) * CHUNK_EDGES)};
+  if (!buffers[0] || !buffers[1]) {
+    fprintf(stderr, "Erro: Parallel: falha ao alocar buffers para envio assíncrono em lote: %s\n", strerror(errno));
+    free(buffers[0]);
+    free(buffers[1]);
+    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+  }
+
+  MPI_Request requests[2] = {MPI_REQUEST_NULL, MPI_REQUEST_NULL};
+  unsigned int sentCount = 0;
+  int slotId = 0;
+
+  while (sentCount < edgeCount) {
+    if (requests[slotId] != MPI_REQUEST_NULL) {
+      MPI_Wait(&requests[slotId], MPI_STATUS_IGNORE);
+      requests[slotId] = MPI_REQUEST_NULL;
+    }
+
+    unsigned int batchCount = edgeCount - sentCount;
+    if (batchCount > CHUNK_EDGES) {
+      batchCount = CHUNK_EDGES;
+    }
+
+    fread(buffers[slotId], sizeof(Edge), batchCount, graphFile);
+    MPI_Isend(buffers[slotId], batchCount, MPI_EDGE_TYPE, rankId, 0, MPI_COMM_WORLD, &requests[slotId]);
+
+    sentCount += batchCount;
+    slotId = 1 - slotId;
+  }
+
+  if (requests[0] != MPI_REQUEST_NULL) {
+    MPI_Wait(&requests[0], MPI_STATUS_IGNORE);
+  }
+  if (requests[1] != MPI_REQUEST_NULL) {
+    MPI_Wait(&requests[1], MPI_STATUS_IGNORE);
+  }
+
+  free(buffers[0]);
+  free(buffers[1]);
 }
 
 Edge *Parallel_DistributeEdges(const char *graphFilePath, unsigned int edgeCount, int mpiRank, int mpiWorldSize,
                                unsigned int *localEdgeCount) {
   unsigned int *rankEdgeCounts = malloc(sizeof(unsigned int) * mpiWorldSize);
-  unsigned int *rankDisplacements = malloc(sizeof(unsigned int) * mpiWorldSize);
-  if (!rankEdgeCounts || !rankDisplacements) {
+  if (!rankEdgeCounts) {
     fprintf(stderr, "Erro: Parallel: falha ao alocar buffers de distribuição: %s\n", strerror(errno));
     free(rankEdgeCounts);
-    free(rankDisplacements);
     MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
   }
 
-  Parallel_ComputeCountsAndDisplacements(edgeCount, mpiWorldSize, rankEdgeCounts, rankDisplacements);
-
-  if (mpiRank == 0) {
-    printf("===== Distribuicao de arestas =====\n");
-    printf("Total de arestas: %u\n", edgeCount);
-    printf("Numero de ranks: %d\n", mpiWorldSize);
-    for (int rankId = 0; rankId < mpiWorldSize; rankId++) {
-      printf("  Rank %d: %u arestas (offset %u)\n", rankId, rankEdgeCounts[rankId], rankDisplacements[rankId]);
-    }
-    fflush(stdout);
-  }
-
+  Parallel_ComputeCounts(edgeCount, mpiWorldSize, rankEdgeCounts);
   *localEdgeCount = rankEdgeCounts[mpiRank];
+
   Edge *localEdgeList = NULL;
-  if (*localEdgeCount > 0) {
-    localEdgeList = malloc(sizeof(Edge) * *localEdgeCount);
-    if (!localEdgeList) {
-      fprintf(stderr, "Erro: Parallel: falha ao alocar buffer local de arestas: %s\n", strerror(errno));
-      free(rankEdgeCounts);
-      free(rankDisplacements);
-      MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-    }
+  localEdgeList = malloc(sizeof(Edge) * *localEdgeCount);
+  if (!localEdgeList) {
+    fprintf(stderr, "Erro: Parallel: falha ao alocar buffer local de arestas: %s\n", strerror(errno));
+    free(rankEdgeCounts);
+    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
   }
 
   if (mpiRank == 0) {
@@ -63,53 +88,30 @@ Edge *Parallel_DistributeEdges(const char *graphFilePath, unsigned int edgeCount
       fprintf(stderr, "Erro: Parallel: falha ao abrir arquivo de grafo: %s\n", strerror(errno));
       free(localEdgeList);
       free(rankEdgeCounts);
-      free(rankDisplacements);
       MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
-
-    Edge *readBuffer = malloc(sizeof(Edge) * *localEdgeCount);
-    if (!readBuffer) {
-      fprintf(stderr, "Erro: Parallel: falha ao alocar buffer de leitura em lote: %s\n", strerror(errno));
-      fclose(graphFile);
-      free(localEdgeList);
-      free(rankEdgeCounts);
-      free(rankDisplacements);
-      MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-    }
-
-    printf("Grafo aberto: %s\n", graphFilePath);
-    printf("Lendo %u arestas locais do rank 0...\n", rankEdgeCounts[0]);
-    fflush(stdout);
 
     fread(localEdgeList, sizeof(Edge), rankEdgeCounts[0], graphFile);
 
     for (int rankId = 1; rankId < mpiWorldSize; rankId++) {
-      printf("Enviando %u arestas para rank %d (offset %u)...\n", rankEdgeCounts[rankId], rankId,
-             rankDisplacements[rankId]);
-      fflush(stdout);
-      fread(readBuffer, sizeof(Edge), rankEdgeCounts[rankId], graphFile);
-      MPI_Send(readBuffer, rankEdgeCounts[rankId], MPI_EDGE_TYPE, rankId, 0, MPI_COMM_WORLD);
+      Parallel_SendEdgesToRankAsync(graphFile, rankId, rankEdgeCounts[rankId]);
     }
 
-    printf("Distribuicao concluida pelo rank 0.\n");
-    fflush(stdout);
-
-    free(readBuffer);
     fclose(graphFile);
   } else {
-    MPI_Recv(localEdgeList, *localEdgeCount, MPI_EDGE_TYPE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    printf("[Rank %d] Recebidas %u arestas.\n", mpiRank, *localEdgeCount);
-    fflush(stdout);
-  }
+    unsigned int receivedCount = 0;
+    while (receivedCount < *localEdgeCount) {
+      unsigned int batchCount = *localEdgeCount - receivedCount;
+      if (batchCount > CHUNK_EDGES) {
+        batchCount = CHUNK_EDGES;
+      }
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  if (mpiRank == 0) {
-    printf("Todos os ranks receberam suas arestas.\n");
-    fflush(stdout);
+      MPI_Recv(&localEdgeList[receivedCount], (int)batchCount, MPI_EDGE_TYPE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      receivedCount += batchCount;
+    }
   }
 
   free(rankEdgeCounts);
-  free(rankDisplacements);
   return localEdgeList;
 }
 
@@ -131,11 +133,6 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpiWorldSize);
 
-  if (mpiRank == 0) {
-    printf("Iniciando MST paralela: %u nos, %u arestas\n", nodeCount, edgeCount);
-    fflush(stdout);
-  }
-
   unsigned int localEdgeCount;
   Edge *localEdgeList = Parallel_DistributeEdges(graphFilePath, edgeCount, mpiRank, mpiWorldSize, &localEdgeCount);
 
@@ -145,8 +142,6 @@ int main(int argc, char **argv) {
     MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
   }
   unsigned int mstCount = 0;
-
-  MPI_Barrier(MPI_COMM_WORLD);
 
   double startTime = MPI_Wtime();
 
