@@ -104,7 +104,7 @@ void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int n
     MST_ResetComponentMinEdgesParallel(componentMinEdges, nodeCount);
     MST_ComputeComponentMinEdgesParallel(edgeList, edgeCount, componentMinEdges, &disjointSetPool);
   
-    unsigned int localValidCount = 0;
+    int localValidCount = 0;
     for (NodeId componentId = 0; componentId < nodeCount; componentId++) {
       const Edge edge = componentMinEdges[componentId];
       if (edge.weight != GRAPH_NOTHING.weight) {
