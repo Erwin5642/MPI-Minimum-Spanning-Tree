@@ -42,9 +42,8 @@ void MST_ComputeComponentMinEdgesParallel(Edge *edgeList, unsigned int *edgeCoun
   *edgeCount = updatedEdgeCount;
 }
 
-unsigned int MST_ApplyComponentMinEdgesParallel(Edge *componentMinEdges, DisjointSetPool *disjointSetPool,
-                                                unsigned int nodeCount, Edge *mstEdgeList, unsigned int *mstCount) {
-  unsigned int unionCount = 0;
+void MST_ApplyComponentMinEdgesParallel(Edge *componentMinEdges, DisjointSetPool *disjointSetPool,
+                                        unsigned int nodeCount, Edge *mstEdgeList, unsigned int *mstCount) {
   for (NodeId rootNodeId = 0; rootNodeId < nodeCount; rootNodeId++) {
     const Edge edge = componentMinEdges[rootNodeId];
 
@@ -53,10 +52,8 @@ unsigned int MST_ApplyComponentMinEdgesParallel(Edge *componentMinEdges, Disjoin
 
     if (DisjointSet_Union(disjointSetPool, edge.source, edge.destination)) {
       mstEdgeList[(*mstCount)++] = edge;
-      unionCount++;
     }
   }
-  return unionCount;
 }
 
 void MST_ReduceMinEdge(void *inBuffer, void *outBuffer, int *length, MPI_Datatype *datatype) {
@@ -72,12 +69,8 @@ void MST_ReduceMinEdge(void *inBuffer, void *outBuffer, int *length, MPI_Datatyp
 
 void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int nodeCount, Edge *mstEdgeList,
                          unsigned int *mstCount) {
-  int mpiRank, mpiWorldSize;
-  MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
+  int mpiWorldSize;
   MPI_Comm_size(MPI_COMM_WORLD, &mpiWorldSize);
-  // TODO(debug-remove): remove log below (mst_mpi.c, next line); no removable vars.
-  printf("[progress][mst][rank=%d] start localEdges=%u components=%u worldSize=%d\n", mpiRank, *edgeCount, nodeCount,
-         mpiWorldSize);
 
   DisjointSetPool disjointSetPool;
   if (!DisjointSet_Initialize(&disjointSetPool, nodeCount)) {
@@ -106,7 +99,6 @@ void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int n
   MPI_Op reduceMinEdgeOp;
   MPI_Op_create(MST_ReduceMinEdge, 1, &reduceMinEdgeOp);
 
-  unsigned int phaseId = 0;
   while (disjointSetPool.componentCount > 1) {
     MST_ResetComponentMinEdgesParallel(componentMinEdges, nodeCount);
     MST_ComputeComponentMinEdgesParallel(edgeList, edgeCount, componentMinEdges, &disjointSetPool);
@@ -126,9 +118,6 @@ void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int n
       displs[rank] = totalValidCount;
       totalValidCount += recvCounts[rank];
     }
-    // TODO(debug-remove): remove log below (mst_mpi.c, next line); no removable vars.
-    printf("[progress][mst][rank=%d phase=%u] components=%u localEdges=%u localValid=%d totalValid=%d\n", mpiRank,
-           phaseId, disjointSetPool.componentCount, *edgeCount, localValidCount, totalValidCount);
 
     MPI_Allgatherv(localValidEdges, localValidCount, MPI_COMPONENT_EDGE_TYPE, globalValidEdges, recvCounts, displs,
                    MPI_COMPONENT_EDGE_TYPE, MPI_COMM_WORLD);
@@ -143,17 +132,8 @@ void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int n
       }
     }
     
-    unsigned int localUnionCount =
-        MST_ApplyComponentMinEdgesParallel(componentMinEdges, &disjointSetPool, nodeCount, mstEdgeList, mstCount);
-    // TODO(debug-remove): remove log below (mst_mpi.c, next line); removable vars for this log: localUnionCount.
-    printf("[progress][mst][rank=%d phase=%u] unionsApplied=%u componentsAfter=%u mstCount=%u\n", mpiRank, phaseId,
-           localUnionCount, disjointSetPool.componentCount, *mstCount);
-    phaseId++;
+    MST_ApplyComponentMinEdgesParallel(componentMinEdges, &disjointSetPool, nodeCount, mstEdgeList, mstCount);
   }
-
-  // TODO(debug-remove): remove log below (mst_mpi.c, next line); removable vars for this log: phaseId.
-  printf("[progress][mst][rank=%d] finished phases=%u componentsFinal=%u localEdgesFinal=%u mstCount=%u\n", mpiRank,
-         phaseId, disjointSetPool.componentCount, *edgeCount, *mstCount);
 
   free(globalValidEdges);
   free(localValidEdges);

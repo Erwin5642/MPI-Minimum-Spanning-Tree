@@ -31,7 +31,6 @@ void Parallel_SendEdgesToRankAsync(FILE *graphFile, int rankId, unsigned int edg
 
   MPI_Request requests[2] = {MPI_REQUEST_NULL, MPI_REQUEST_NULL};
   unsigned int sentCount = 0;
-  unsigned int chunkId = 0;
   int slotId = 0;
 
   while (sentCount < edgeCount) {
@@ -49,10 +48,6 @@ void Parallel_SendEdgesToRankAsync(FILE *graphFile, int rankId, unsigned int edg
     MPI_Isend(buffers[slotId], batchCount, MPI_EDGE_TYPE, rankId, 0, MPI_COMM_WORLD, &requests[slotId]);
 
     sentCount += batchCount;
-    chunkId++;
-    // TODO(debug-remove): remove log below (parallel.c, next line); removable vars for this log: chunkId.
-    printf("[progress][distribution][root->rank=%d] chunks=%u sent=%u/%u edges\n", rankId, chunkId, sentCount,
-           edgeCount);
     slotId = 1 - slotId;
   }
 
@@ -78,9 +73,6 @@ Edge *Parallel_DistributeEdges(const char *graphFilePath, unsigned int edgeCount
 
   Parallel_ComputeCounts(edgeCount, mpiWorldSize, rankEdgeCounts);
   *localEdgeCount = rankEdgeCounts[mpiRank];
-  // TODO(debug-remove): remove log below (parallel.c, next line); no removable vars (all reused in core logic).
-  printf("[progress][distribution][rank=%d] assignedLocalEdges=%u totalEdges=%u worldSize=%d\n", mpiRank,
-         *localEdgeCount, edgeCount, mpiWorldSize);
 
   Edge *localEdgeList = NULL;
   localEdgeList = malloc(sizeof(Edge) * *localEdgeCount);
@@ -100,19 +92,14 @@ Edge *Parallel_DistributeEdges(const char *graphFilePath, unsigned int edgeCount
     }
 
     fread(localEdgeList, sizeof(Edge), rankEdgeCounts[0], graphFile);
-    // TODO(debug-remove): remove log below (parallel.c, next line); no removable vars.
-    printf("[progress][distribution][rank=0] loadedOwnEdges=%u/%u\n", rankEdgeCounts[0], edgeCount);
 
     for (int rankId = 1; rankId < mpiWorldSize; rankId++) {
       Parallel_SendEdgesToRankAsync(graphFile, rankId, rankEdgeCounts[rankId]);
     }
 
     fclose(graphFile);
-    // TODO(debug-remove): remove log below (parallel.c, next line); no removable vars.
-    printf("[progress][distribution][rank=0] finishedSendingToAllRanks\n");
   } else {
     unsigned int receivedCount = 0;
-    unsigned int recvChunkId = 0;
     while (receivedCount < *localEdgeCount) {
       unsigned int batchCount = *localEdgeCount - receivedCount;
       if (batchCount > CHUNK_EDGES) {
@@ -121,15 +108,9 @@ Edge *Parallel_DistributeEdges(const char *graphFilePath, unsigned int edgeCount
 
       MPI_Recv(&localEdgeList[receivedCount], (int)batchCount, MPI_EDGE_TYPE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       receivedCount += batchCount;
-      recvChunkId++;
-      // TODO(debug-remove): remove log below (parallel.c, next line); removable vars for this log: recvChunkId.
-      printf("[progress][distribution][rank=%d] recvChunks=%u received=%u/%u edges\n", mpiRank, recvChunkId,
-             receivedCount, *localEdgeCount);
     }
   }
 
-  // TODO(debug-remove): remove log below (parallel.c, next line); no removable vars.
-  printf("[progress][distribution][rank=%d] distributionComplete localEdges=%u\n", mpiRank, *localEdgeCount);
   free(rankEdgeCounts);
   return localEdgeList;
 }
@@ -145,19 +126,18 @@ int main(int argc, char **argv) {
   unsigned int edgeCount = atoi(argv[3]);
 
   MPI_Init(&argc, &argv);
+  double programStartTime = MPI_Wtime();
 
   MPI_Register_Datatypes();
 
   int mpiRank, mpiWorldSize;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpiWorldSize);
-  // TODO(debug-remove): remove log below (parallel.c, next line); no removable vars.
-  printf("[progress][main][rank=%d] mpiReady worldSize=%d\n", mpiRank, mpiWorldSize);
 
   unsigned int localEdgeCount;
+  double distributionStartTime = MPI_Wtime();
   Edge *localEdgeList = Parallel_DistributeEdges(graphFilePath, edgeCount, mpiRank, mpiWorldSize, &localEdgeCount);
-  // TODO(debug-remove): remove log below (parallel.c, next line); no removable vars.
-  printf("[progress][main][rank=%d] distributionDone localEdgeCount=%u\n", mpiRank, localEdgeCount);
+  double distributionElapsedSeconds = MPI_Wtime() - distributionStartTime;
 
   Edge *mstEdgeList = malloc(sizeof(Edge) * (nodeCount - 1));
   if (!mstEdgeList) {
@@ -166,15 +146,15 @@ int main(int argc, char **argv) {
   }
   unsigned int mstCount = 0;
 
-  double startTime = MPI_Wtime();
-
+  double mstStartTime = MPI_Wtime();
   MST_ComputeParallel(localEdgeList, &localEdgeCount, nodeCount, mstEdgeList, &mstCount);
-  // TODO(debug-remove): remove log below (parallel.c, next line); no removable vars.
-  printf("[progress][main][rank=%d] mstComputeDone localEdgeCount=%u mstCount=%u\n", mpiRank, localEdgeCount,
-         mstCount);
+  double mstElapsedSeconds = MPI_Wtime() - mstStartTime;
 
-  double endTime = MPI_Wtime();
-  double elapsedSeconds = endTime - startTime;
+  double programElapsedSeconds = MPI_Wtime() - programStartTime;
+  printf("[rank=%d] Tempo de distribuicao: %f segundos\n", mpiRank, distributionElapsedSeconds);
+  printf("[rank=%d] Tempo do MST: %f segundos\n", mpiRank, mstElapsedSeconds);
+  printf("[rank=%d] Tempo total do programa: %f segundos\n", mpiRank, programElapsedSeconds);
+
   if (mpiRank == 0) {
     long double mstWeightSum = 0;
     printf("===== MST Computada (Paralela) =====\n");
@@ -185,7 +165,6 @@ int main(int argc, char **argv) {
     printf("Total de arestas na MST: %u\n", mstCount);
     printf("Contagem esperada: %u\n", nodeCount - 1);
     printf("Soma: %Lf\n", mstWeightSum);
-    printf("Tempo de execução: %f segundos\n", elapsedSeconds);
     printf("Resolução temporal: %e\n", MPI_Wtick());
   }
 
