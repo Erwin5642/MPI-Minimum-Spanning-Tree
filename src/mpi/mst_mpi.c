@@ -42,8 +42,9 @@ void MST_ComputeComponentMinEdgesParallel(Edge *edgeList, unsigned int *edgeCoun
   *edgeCount = updatedEdgeCount;
 }
 
-void MST_ApplyComponentMinEdgesParallel(Edge *componentMinEdges, DisjointSetPool *disjointSetPool,
-                                        unsigned int nodeCount, Edge *mstEdgeList, unsigned int *mstCount) {
+unsigned int MST_ApplyComponentMinEdgesParallel(Edge *componentMinEdges, DisjointSetPool *disjointSetPool,
+                                                unsigned int nodeCount, Edge *mstEdgeList, unsigned int *mstCount) {
+  unsigned int unionCount = 0;
   for (NodeId rootNodeId = 0; rootNodeId < nodeCount; rootNodeId++) {
     const Edge edge = componentMinEdges[rootNodeId];
 
@@ -52,8 +53,10 @@ void MST_ApplyComponentMinEdgesParallel(Edge *componentMinEdges, DisjointSetPool
 
     if (DisjointSet_Union(disjointSetPool, edge.source, edge.destination)) {
       mstEdgeList[(*mstCount)++] = edge;
+      unionCount++;
     }
   }
+  return unionCount;
 }
 
 void MST_ReduceMinEdge(void *inBuffer, void *outBuffer, int *length, MPI_Datatype *datatype) {
@@ -72,6 +75,7 @@ void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int n
   int mpiRank, mpiWorldSize;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpiWorldSize);
+  const bool verboseRanks = getenv("MST_MPI_VERBOSE_RANKS") != NULL;
 
   DisjointSetPool disjointSetPool;
   if (!DisjointSet_Initialize(&disjointSetPool, nodeCount)) {
@@ -100,7 +104,11 @@ void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int n
   MPI_Op reduceMinEdgeOp;
   MPI_Op_create(MST_ReduceMinEdge, 1, &reduceMinEdgeOp);
 
+  unsigned int phaseId = 0;
   while (disjointSetPool.componentCount > 1) {
+    const unsigned int componentCountBefore = disjointSetPool.componentCount;
+    const unsigned int localEdgeCountBefore = *edgeCount;
+
     MST_ResetComponentMinEdgesParallel(componentMinEdges, nodeCount);
     MST_ComputeComponentMinEdgesParallel(edgeList, edgeCount, componentMinEdges, &disjointSetPool);
   
@@ -132,7 +140,40 @@ void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int n
       }
     }
     
-    MST_ApplyComponentMinEdgesParallel(componentMinEdges, &disjointSetPool, nodeCount, mstEdgeList, mstCount);
+    const unsigned int localUnionCount =
+        MST_ApplyComponentMinEdgesParallel(componentMinEdges, &disjointSetPool, nodeCount, mstEdgeList, mstCount);
+    const unsigned int componentCountAfter = disjointSetPool.componentCount;
+    const unsigned int localEdgeCountAfter = *edgeCount;
+
+    unsigned int minUnionCount = localUnionCount;
+    unsigned int maxUnionCount = localUnionCount;
+    MPI_Allreduce(MPI_IN_PLACE, &minUnionCount, 1, MPI_UNSIGNED, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &maxUnionCount, 1, MPI_UNSIGNED, MPI_MAX, MPI_COMM_WORLD);
+
+    if (verboseRanks) {
+      fprintf(stderr,
+              "[rank=%d phase=%u] components=%u->%u localEdges=%u->%u localValid=%d totalValid=%d unions=%u\n",
+              mpiRank, phaseId, componentCountBefore, componentCountAfter, localEdgeCountBefore, localEdgeCountAfter,
+              localValidCount, totalValidCount, localUnionCount);
+    }
+
+    if (mpiRank == 0) {
+      fprintf(stderr,
+              "[phase=%u] components=%u->%u totalValid=%d unions=%u localEdges(rank0)=%u->%u\n",
+              phaseId, componentCountBefore, componentCountAfter, totalValidCount, localUnionCount, localEdgeCountBefore,
+              localEdgeCountAfter);
+      if (minUnionCount != maxUnionCount) {
+        fprintf(stderr, "[phase=%u] warning: inconsistent unions across ranks: min=%u max=%u\n", phaseId,
+                minUnionCount, maxUnionCount);
+      }
+      if ((totalValidCount == 0 || localUnionCount == 0) && componentCountAfter > 1) {
+        fprintf(stderr,
+                "[phase=%u] stall-signature: components=%u totalValid=%d unions=%u localEdges(rank0)=%u\n", phaseId,
+                componentCountAfter, totalValidCount, localUnionCount, localEdgeCountAfter);
+      }
+    }
+
+    phaseId++;
   }
 
   free(globalValidEdges);
