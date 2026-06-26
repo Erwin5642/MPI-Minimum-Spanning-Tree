@@ -75,8 +75,9 @@ void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int n
   int mpiRank, mpiWorldSize;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpiWorldSize);
-  const bool verboseRanks = getenv("MST_MPI_VERBOSE_RANKS") != NULL;
-  const double mstComputeStartTime = MPI_Wtime();
+  // TODO(debug-remove): remove log below (mst_mpi.c, next line); no removable vars.
+  printf("[progress][mst][rank=%d] start localEdges=%u components=%u worldSize=%d\n", mpiRank, *edgeCount, nodeCount,
+         mpiWorldSize);
 
   DisjointSetPool disjointSetPool;
   if (!DisjointSet_Initialize(&disjointSetPool, nodeCount)) {
@@ -107,14 +108,8 @@ void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int n
 
   unsigned int phaseId = 0;
   while (disjointSetPool.componentCount > 1) {
-    const double phaseStartTime = MPI_Wtime();
-    const unsigned int componentCountBefore = disjointSetPool.componentCount;
-    const unsigned int localEdgeCountBefore = *edgeCount;
-
-    const double computeMinStartTime = MPI_Wtime();
     MST_ResetComponentMinEdgesParallel(componentMinEdges, nodeCount);
     MST_ComputeComponentMinEdgesParallel(edgeList, edgeCount, componentMinEdges, &disjointSetPool);
-    const double computeMinElapsedSeconds = MPI_Wtime() - computeMinStartTime;
   
     int localValidCount = 0;
     for (NodeId componentId = 0; componentId < nodeCount; componentId++) {
@@ -124,22 +119,20 @@ void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int n
       }
     }
 
-    const double gatherCountsStartTime = MPI_Wtime();
     MPI_Allgather(&localValidCount, 1, MPI_INT, recvCounts, 1, MPI_INT, MPI_COMM_WORLD);
-    const double gatherCountsElapsedSeconds = MPI_Wtime() - gatherCountsStartTime;
 
     int totalValidCount = 0;
     for (int rank = 0; rank < mpiWorldSize; rank++) {
       displs[rank] = totalValidCount;
       totalValidCount += recvCounts[rank];
     }
+    // TODO(debug-remove): remove log below (mst_mpi.c, next line); no removable vars.
+    printf("[progress][mst][rank=%d phase=%u] components=%u localEdges=%u localValid=%d totalValid=%d\n", mpiRank,
+           phaseId, disjointSetPool.componentCount, *edgeCount, localValidCount, totalValidCount);
 
-    const double gatherEdgesStartTime = MPI_Wtime();
     MPI_Allgatherv(localValidEdges, localValidCount, MPI_COMPONENT_EDGE_TYPE, globalValidEdges, recvCounts, displs,
                    MPI_COMPONENT_EDGE_TYPE, MPI_COMM_WORLD);
-    const double gatherEdgesElapsedSeconds = MPI_Wtime() - gatherEdgesStartTime;
 
-    const double rebuildMinStartTime = MPI_Wtime();
     MST_ResetComponentMinEdgesParallel(componentMinEdges, nodeCount);
     for (int i = 0; i < totalValidCount; i++) {
       NodeId componentId = globalValidEdges[i].component;
@@ -149,58 +142,18 @@ void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int n
         componentMinEdges[componentId] = edge;
       }
     }
-    const double rebuildMinElapsedSeconds = MPI_Wtime() - rebuildMinStartTime;
     
-    const double applyMinStartTime = MPI_Wtime();
-    const unsigned int localUnionCount =
+    unsigned int localUnionCount =
         MST_ApplyComponentMinEdgesParallel(componentMinEdges, &disjointSetPool, nodeCount, mstEdgeList, mstCount);
-    const double applyMinElapsedSeconds = MPI_Wtime() - applyMinStartTime;
-    const unsigned int componentCountAfter = disjointSetPool.componentCount;
-    const unsigned int localEdgeCountAfter = *edgeCount;
-
-    unsigned int minUnionCount = localUnionCount;
-    unsigned int maxUnionCount = localUnionCount;
-    const double unionReduceStartTime = MPI_Wtime();
-    MPI_Allreduce(MPI_IN_PLACE, &minUnionCount, 1, MPI_UNSIGNED, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &maxUnionCount, 1, MPI_UNSIGNED, MPI_MAX, MPI_COMM_WORLD);
-    const double unionReduceElapsedSeconds = MPI_Wtime() - unionReduceStartTime;
-    const double phaseElapsedSeconds = MPI_Wtime() - phaseStartTime;
-
-    if (verboseRanks) {
-      fprintf(stderr,
-              "[rank=%d phase=%u] components=%u->%u localEdges=%u->%u localValid=%d totalValid=%d unions=%u "
-              "timing[s]: phase=%.6f computeMin=%.6f gatherCounts=%.6f gatherEdges=%.6f rebuildMin=%.6f "
-              "apply=%.6f unionReduce=%.6f\n",
-              mpiRank, phaseId, componentCountBefore, componentCountAfter, localEdgeCountBefore, localEdgeCountAfter,
-              localValidCount, totalValidCount, localUnionCount, phaseElapsedSeconds, computeMinElapsedSeconds,
-              gatherCountsElapsedSeconds, gatherEdgesElapsedSeconds, rebuildMinElapsedSeconds, applyMinElapsedSeconds,
-              unionReduceElapsedSeconds);
-    }
-
-    if (mpiRank == 0) {
-      fprintf(stderr,
-              "[phase=%u] components=%u->%u totalValid=%d unions=%u localEdges(rank0)=%u->%u timing[s]: phase=%.6f "
-              "computeMin=%.6f gatherCounts=%.6f gatherEdges=%.6f rebuildMin=%.6f apply=%.6f unionReduce=%.6f\n",
-              phaseId, componentCountBefore, componentCountAfter, totalValidCount, localUnionCount, localEdgeCountBefore,
-              localEdgeCountAfter, phaseElapsedSeconds, computeMinElapsedSeconds, gatherCountsElapsedSeconds,
-              gatherEdgesElapsedSeconds, rebuildMinElapsedSeconds, applyMinElapsedSeconds, unionReduceElapsedSeconds);
-      if (minUnionCount != maxUnionCount) {
-        fprintf(stderr, "[phase=%u] warning: inconsistent unions across ranks: min=%u max=%u\n", phaseId,
-                minUnionCount, maxUnionCount);
-      }
-      if ((totalValidCount == 0 || localUnionCount == 0) && componentCountAfter > 1) {
-        fprintf(stderr,
-                "[phase=%u] stall-signature: components=%u totalValid=%d unions=%u localEdges(rank0)=%u\n", phaseId,
-                componentCountAfter, totalValidCount, localUnionCount, localEdgeCountAfter);
-      }
-    }
-
+    // TODO(debug-remove): remove log below (mst_mpi.c, next line); removable vars for this log: localUnionCount.
+    printf("[progress][mst][rank=%d phase=%u] unionsApplied=%u componentsAfter=%u mstCount=%u\n", mpiRank, phaseId,
+           localUnionCount, disjointSetPool.componentCount, *mstCount);
     phaseId++;
   }
 
-  const double mstComputeElapsedSeconds = MPI_Wtime() - mstComputeStartTime;
-  fprintf(stderr, "[rank=%d] mst-compute-loop: elapsed=%.6fs phases=%u componentsFinal=%u edgesFinal=%u mstCount=%u\n",
-          mpiRank, mstComputeElapsedSeconds, phaseId, disjointSetPool.componentCount, *edgeCount, *mstCount);
+  // TODO(debug-remove): remove log below (mst_mpi.c, next line); removable vars for this log: phaseId.
+  printf("[progress][mst][rank=%d] finished phases=%u componentsFinal=%u localEdgesFinal=%u mstCount=%u\n", mpiRank,
+         phaseId, disjointSetPool.componentCount, *edgeCount, *mstCount);
 
   free(globalValidEdges);
   free(localValidEdges);
