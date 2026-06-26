@@ -14,8 +14,6 @@
 #define MST_TEMP_PATH_B ".tmp/mst-b"
 
 void MST_ResetComponentMinEdges(Edge *componentMinEdges, unsigned int nodeCount) {
-    // TODO: remove later printf
-  printf("Reseting min edges\n");
   for (NodeId rootNodeId = 0; rootNodeId < nodeCount; rootNodeId++) {
     componentMinEdges[rootNodeId] = GRAPH_NOTHING;
   }
@@ -27,13 +25,8 @@ void MST_ComputeComponentMinEdges(FILE *readFile, FILE *writeFile, Edge *readBuf
   unsigned int updatedEdgeCount = 0;
   unsigned int writeBufferCount = 0;
 
-  // TODO: remove later
-  unsigned int iterations = 0;
-
   unsigned int readCount;
   while ((readCount = fread(readBuffer, sizeof(Edge), BUFFER_EDGES, readFile)) > 0) {
-    // TODO: remove later printf
-    printf("Read iteration: %d\n", iterations++);
     printf("This time well have %d edges\n", readCount);
     for (unsigned int edgeId = 0; edgeId < readCount; edgeId++) {
       const Edge edge = readBuffer[edgeId];
@@ -67,17 +60,12 @@ void MST_ComputeComponentMinEdges(FILE *readFile, FILE *writeFile, Edge *readBuf
   if (writeBufferCount > 0) {
     fwrite(writeBuffer, sizeof(Edge), writeBufferCount, writeFile);
   }
-    // TODO: remove later printf
-  printf("The updated edge count is %d, so %d (%d) of edges were fitered out\n", updatedEdgeCount, *edgeCount - updatedEdgeCount,  (*edgeCount - updatedEdgeCount) * 100 / *edgeCount);
 
   *edgeCount = updatedEdgeCount;
 }
 
 void MST_ApplyComponentMinEdges(Edge *componentMinEdges, DisjointSetPool *disjointSetPool, unsigned int nodeCount,
                                 Edge *mstEdgeList, unsigned int *mstCount) {
-    // TODO: remove later printf
-  printf("Aplying component unions\n");
-
   for (NodeId rootNodeId = 0; rootNodeId < nodeCount; rootNodeId++) {
     const Edge edge = componentMinEdges[rootNodeId];
 
@@ -121,9 +109,6 @@ void MST_Compute(const char *graphFilePath, unsigned int edgeCount, unsigned int
   const char *currentWritePath = MST_TEMP_PATH_A;
   unsigned int currentEdgeCount = edgeCount;
   int phase = 0;
-
-    // TODO: remove later printf
-    printf("Beginning phase 0\n");
   
   while (disjointSetPool.componentCount > 1 && currentEdgeCount > 0) {
     FILE *readFile = fopen(currentReadPath, "rb");
@@ -146,9 +131,6 @@ void MST_Compute(const char *graphFilePath, unsigned int edgeCount, unsigned int
 
     MST_ApplyComponentMinEdges(componentMinEdges, &disjointSetPool, nodeCount, mstEdgeList, mstCount);
 
-    // TODO: remove later printf
-    printf("Components count after merge: %d\n", disjointSetPool.componentCount);
-
     if (phase == 0) {
       currentReadPath = MST_TEMP_PATH_A;
       currentWritePath = MST_TEMP_PATH_B;
@@ -158,8 +140,6 @@ void MST_Compute(const char *graphFilePath, unsigned int edgeCount, unsigned int
       currentReadPath = nextReadPath;
     }
 
-    // TODO: remove later printf
-    printf("Ending phase: %d\n", phase);
     phase++;
   }
 
