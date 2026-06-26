@@ -27,7 +27,6 @@ void MST_ComputeComponentMinEdges(FILE *readFile, FILE *writeFile, Edge *readBuf
 
   unsigned int readCount;
   while ((readCount = fread(readBuffer, sizeof(Edge), BUFFER_EDGES, readFile)) > 0) {
-    printf("This time well have %d edges\n", readCount);
     for (unsigned int edgeId = 0; edgeId < readCount; edgeId++) {
       const Edge edge = readBuffer[edgeId];
 
