@@ -16,5 +16,7 @@ void MST_ApplyComponentMinEdges(Edge *componentMinEdges, DisjointSetPool *disjoi
 
 void MST_Compute(const char *graphFilePath, unsigned int edgeCount, unsigned int nodeCount, Edge *mstEdgeList,
                  unsigned int *mstCount);
+void MST_ComputeNoFilter(const char *graphFilePath, unsigned int edgeCount, unsigned int nodeCount, Edge *mstEdgeList,
+                         unsigned int *mstCount);
 
 #endif

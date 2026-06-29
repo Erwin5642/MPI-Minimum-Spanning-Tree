@@ -11,13 +11,20 @@ CFLAGS = -Wall -Wextra -pedantic -g -O2
 MPIRUN_FLAGS = --mca btl_tcp_if_include 172.26.1.0/24
 
 TARGET_SEQ = $(BIN_DIR)/sequential
+TARGET_SEQ_NO_FILTER = $(BIN_DIR)/sequential_no_filter
 TARGET_PAR = $(BIN_DIR)/parallel
-TARGETS = $(TARGET_SEQ) $(TARGET_PAR)
+TARGETS = $(TARGET_SEQ) $(TARGET_SEQ_NO_FILTER) $(TARGET_PAR)
 
 OBJS_SEQ = $(BUILD_DIR)/sequential.o \
            $(BUILD_DIR)/core/graph.o \
            $(BUILD_DIR)/core/disjointset.o \
            $(BUILD_DIR)/mst/mst.o
+
+OBJS_SEQ_NO_FILTER = $(BUILD_DIR)/sequential_no_filter.o \
+                     $(BUILD_DIR)/core/graph.o \
+                     $(BUILD_DIR)/core/disjointset.o \
+                     $(BUILD_DIR)/mst/mst.o \
+                     $(BUILD_DIR)/mst/mst_no_filter.o
 
 OBJS_PAR = $(BUILD_DIR)/parallel.o \
            $(BUILD_DIR)/core/graph.o \
@@ -29,9 +36,14 @@ OBJS_PAR = $(BUILD_DIR)/parallel.o \
 all: $(TARGETS)
 
 sequential: $(TARGET_SEQ)
+sequential_no_filter: $(TARGET_SEQ_NO_FILTER)
 parallel: $(TARGET_PAR)
 
 $(TARGET_SEQ): $(OBJS_SEQ)
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $^
+
+$(TARGET_SEQ_NO_FILTER): $(OBJS_SEQ_NO_FILTER)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $@ $^
 
@@ -54,4 +66,4 @@ run: $(TARGETS)
 clean:
 	rm -rf $(BIN_DIR) $(BUILD_DIR)
 
-.PHONY: all sequential parallel test run clean
+.PHONY: all sequential sequential_no_filter parallel test run clean
