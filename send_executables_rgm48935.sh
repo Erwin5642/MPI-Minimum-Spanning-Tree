@@ -54,13 +54,13 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   host="${line%% *}"
   echo "==> $host -> ${REMOTE_BIN_DIR}/"
 
-  if ! ssh "$host" "mkdir -p ${REMOTE_BIN_DIR}"; then
+  if ! ssh -n "$host" "mkdir -p ${REMOTE_BIN_DIR}" </dev/null; then
     echo "  failed to create remote directory ${REMOTE_BIN_DIR}"
     continue
   fi
 
   for executable in "${EXECUTABLES[@]}"; do
-    if rsync -avz "$executable" "${host}:${REMOTE_BIN_DIR}/"; then
+    if rsync -avz -e "ssh -n" "$executable" "${host}:${REMOTE_BIN_DIR}/" </dev/null; then
       echo "  sent $(basename "$executable")"
     else
       echo "  failed $(basename "$executable")"
