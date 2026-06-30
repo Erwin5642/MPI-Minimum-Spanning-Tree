@@ -13,6 +13,13 @@ GRAPH = data/setup_cod_paralelos/graph.bin 10000000 800000000
 CFLAGS = -Wall -Wextra -pedantic
 MPIRUN_FLAGS = --mca btl_tcp_if_include 172.26.1.0/24
 DEBUG_DIR = debug
+RGM ?= rgm48935
+SCP_OPTS ?=
+HOSTS_FILE ?= mpi_hosts
+MAQUINAS ?= $(shell awk 'NF {print $$1}' $(HOSTS_FILE))
+REMOTE_PATH_LOCAL ?= $(HOME)/local/rgm48935/MPI-Minimum-Spanning-Tree
+REMOTE_PATH_REMOTE ?= ~/local/rgm48935/MPI-Minimum-Spanning-Tree
+parBIN ?= $(TARGET_PAR)
 
 TARGET_SEQ = $(BIN_DIR)/sequential
 TARGET_PAR = $(BIN_DIR)/parallel
@@ -90,7 +97,17 @@ debug: $(TARGET_PAR_DEBUG) $(TARGET_SEQ_DEBUG)
 	$(RUN) -np 4 ./$(TARGET_PAR_DEBUG) $(DEBUG_GRAPH) > $(DEBUG_PAR_LOG) 2>&1
 	./$(TARGET_SEQ_DEBUG) $(DEBUG_GRAPH) > $(DEBUG_SEQ_LOG) 2>&1
 
+send_parallel: $(TARGET_PAR)
+	@set -e; \
+	mkdir -p "$(REMOTE_PATH_LOCAL)/bin"; \
+	[ "$$(readlink -f $(parBIN))" = "$$(readlink -f $(REMOTE_PATH_LOCAL)/bin/$$(basename $(parBIN)))" ] || cp -f $(parBIN) "$(REMOTE_PATH_LOCAL)/bin/"; \
+	for m in $(MAQUINAS); do \
+		echo "--- $$m ---"; \
+		ssh $(SCP_OPTS) "$(RGM)@$$m" "mkdir -p $(REMOTE_PATH_REMOTE)/bin"; \
+		scp $(SCP_OPTS) $(parBIN) "$(RGM)@$$m:$(REMOTE_PATH_REMOTE)/bin/"; \
+	done
+
 clean:
 	rm -rf $(BIN_DIR) $(BUILD_DIR)
 
-.PHONY: all sequential parallel sequential_debug parallel_debug test run debug clean
+.PHONY: all sequential parallel sequential_debug parallel_debug test run debug send_parallel clean
