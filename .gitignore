@@ -57,7 +57,6 @@ mst_sequential_debug.txt
 # Runtime outputs (production)
 mst_parallel.txt
 mst_sequential.txt
-mst_sequential_no_filter.txt
 
 # Large local reference files
 caminho.txt

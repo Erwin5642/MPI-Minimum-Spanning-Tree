@@ -2,16 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include "mst.h"
 
 #define BUFFER_SIZE_MB 32
 #define BUFFER_EDGES ((BUFFER_SIZE_MB * 1024 * 1024) / sizeof(Edge))
-
-#define MST_TEMP_PATH_A ".tmp/mst-a"
-#define MST_TEMP_PATH_B ".tmp/mst-b"
 
 void MST_ResetComponentMinEdges(Edge *componentMinEdges, unsigned int nodeCount) {
   for (NodeId rootNodeId = 0; rootNodeId < nodeCount; rootNodeId++) {
@@ -19,11 +13,9 @@ void MST_ResetComponentMinEdges(Edge *componentMinEdges, unsigned int nodeCount)
   }
 }
 
-void MST_ComputeComponentMinEdges(FILE *readFile, FILE *writeFile, Edge *readBuffer, Edge *writeBuffer,
-                                  unsigned int *edgeCount, Edge *componentMinEdges,
+void MST_ComputeComponentMinEdges(FILE *readFile, Edge *readBuffer, unsigned int *edgeCount, Edge *componentMinEdges,
                                   DisjointSetPool *disjointSetPool) {
   unsigned int updatedEdgeCount = 0;
-  unsigned int writeBufferCount = 0;
 
   unsigned int readCount;
   while ((readCount = fread(readBuffer, sizeof(Edge), BUFFER_EDGES, readFile)) > 0) {
@@ -36,13 +28,7 @@ void MST_ComputeComponentMinEdges(FILE *readFile, FILE *writeFile, Edge *readBuf
       if (sourceRootId == destRootId)
         continue;
 
-      writeBuffer[writeBufferCount++] = edge;
       updatedEdgeCount++;
-
-      if (writeBufferCount == BUFFER_EDGES) {
-        fwrite(writeBuffer, sizeof(Edge), writeBufferCount, writeFile);
-        writeBufferCount = 0;
-      }
 
       Edge *componentMinEdgeOnSource = &componentMinEdges[sourceRootId];
       Edge *componentMinEdgeOnDest = &componentMinEdges[destRootId];
@@ -55,11 +41,6 @@ void MST_ComputeComponentMinEdges(FILE *readFile, FILE *writeFile, Edge *readBuf
       }
     }
   }
-
-  if (writeBufferCount > 0) {
-    fwrite(writeBuffer, sizeof(Edge), writeBufferCount, writeFile);
-  }
-
   *edgeCount = updatedEdgeCount;
 }
 
@@ -79,12 +60,8 @@ void MST_ApplyComponentMinEdges(Edge *componentMinEdges, DisjointSetPool *disjoi
 
 void MST_Compute(const char *graphFilePath, unsigned int edgeCount, unsigned int nodeCount, Edge *mstEdgeList,
                  unsigned int *mstCount, Weight *mstWeightSum) {
+  if (mstWeightSum) {
     *mstWeightSum = 0;
-
-
-  if (mkdir(".tmp", 0755) != 0 && errno != EEXIST) {
-    fprintf(stderr, "Erro: MST: falha ao criar diretorio .tmp: %s\n", strerror(errno));
-    return;
   }
 
   DisjointSetPool disjointSetPool;
@@ -95,59 +72,42 @@ void MST_Compute(const char *graphFilePath, unsigned int edgeCount, unsigned int
 
   Edge *componentMinEdges = malloc(sizeof(Edge) * nodeCount);
   Edge *readBuffer = malloc(sizeof(Edge) * BUFFER_EDGES);
-  Edge *writeBuffer = malloc(sizeof(Edge) * BUFFER_EDGES);
 
-  if (!componentMinEdges || !readBuffer || !writeBuffer) {
+  if (!componentMinEdges || !readBuffer) {
     fprintf(stderr, "Erro: MST: falha ao alocar buffers principais: %s\n", strerror(errno));
-    if (componentMinEdges) free(componentMinEdges);
-    if (readBuffer) free(readBuffer);
-    if (writeBuffer) free(writeBuffer);
+    if (componentMinEdges) {
+      free(componentMinEdges);
+    }
+    if (readBuffer) {
+      free(readBuffer);
+    }
     DisjointSet_Finalize(&disjointSetPool);
     return;
   }
 
-  const char *currentReadPath = graphFilePath;
-  const char *currentWritePath = MST_TEMP_PATH_A;
   unsigned int currentEdgeCount = edgeCount;
-  int phase = 0;
-  
-  while (disjointSetPool.componentCount > 1 && currentEdgeCount > 0) {
-    FILE *readFile = fopen(currentReadPath, "rb");
-    FILE *writeFile = fopen(currentWritePath, "wb");
 
-    if (!readFile || !writeFile) {
-      fprintf(stderr, "Erro: MST: falha ao abrir arquivos I/O (Fase %d): %s\n", phase, strerror(errno));
-      if (readFile) fclose(readFile);
-      if (writeFile) fclose(writeFile);
+  while (disjointSetPool.componentCount > 1 && currentEdgeCount > 0) {
+    FILE *readFile = fopen(graphFilePath, "rb");
+    if (!readFile) {
+      fprintf(stderr, "Erro: MST: falha ao abrir arquivo de entrada: %s\n", strerror(errno));
       break;
     }
 
     MST_ResetComponentMinEdges(componentMinEdges, nodeCount);
 
-    MST_ComputeComponentMinEdges(readFile, writeFile, readBuffer, writeBuffer, &currentEdgeCount, componentMinEdges,
-                                 &disjointSetPool);
+    MST_ComputeComponentMinEdges(readFile, readBuffer, &currentEdgeCount, componentMinEdges, &disjointSetPool);
 
     fclose(readFile);
-    fclose(writeFile);
 
     MST_ApplyComponentMinEdges(componentMinEdges, &disjointSetPool, nodeCount, mstEdgeList, mstCount);
-
-    if (phase == 0) {
-      currentReadPath = MST_TEMP_PATH_A;
-      currentWritePath = MST_TEMP_PATH_B;
-    } else {
-      const char *nextReadPath = currentWritePath;
-      currentWritePath = currentReadPath;
-      currentReadPath = nextReadPath;
-    }
-
-    phase++;
   }
 
-  *mstWeightSum = disjointSetPool.componentSums[disjointSetPool.lastUnifiedRootId];
+  if (mstWeightSum && disjointSetPool.lastUnifiedRootId != GRAPH_NODE_ID_MAX) {
+    *mstWeightSum = disjointSetPool.componentSums[disjointSetPool.lastUnifiedRootId];
+  }
 
   DisjointSet_Finalize(&disjointSetPool);
   free(readBuffer);
-  free(writeBuffer);
   free(componentMinEdges);
 }

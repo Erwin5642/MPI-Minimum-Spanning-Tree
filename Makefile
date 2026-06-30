@@ -15,24 +15,16 @@ MPIRUN_FLAGS = --mca btl_tcp_if_include 172.26.1.0/24
 DEBUG_DIR = debug
 
 TARGET_SEQ = $(BIN_DIR)/sequential
-TARGET_SEQ_NO_FILTER = $(BIN_DIR)/sequential_no_filter
 TARGET_PAR = $(BIN_DIR)/parallel
 TARGET_SEQ_DEBUG = $(BIN_DIR)/sequential_debug
 TARGET_PAR_DEBUG = $(BIN_DIR)/parallel_debug
-TARGETS = $(TARGET_SEQ) $(TARGET_SEQ_NO_FILTER) $(TARGET_PAR)
+TARGETS = $(TARGET_SEQ) $(TARGET_PAR)
 
 OBJS_SEQ = $(BUILD_DIR)/sequential.o \
            $(BUILD_DIR)/core/graph.o \
            $(BUILD_DIR)/core/disjointset.o \
            $(BUILD_DIR)/core/mst_output.o \
            $(BUILD_DIR)/mst/mst.o
-
-OBJS_SEQ_NO_FILTER = $(BUILD_DIR)/sequential_no_filter.o \
-                     $(BUILD_DIR)/core/graph.o \
-                     $(BUILD_DIR)/core/disjointset.o \
-                     $(BUILD_DIR)/core/mst_output.o \
-                     $(BUILD_DIR)/mst/mst.o \
-                     $(BUILD_DIR)/mst/mst_no_filter.o
 
 OBJS_PAR = $(BUILD_DIR)/parallel.o \
            $(BUILD_DIR)/core/graph.o \
@@ -58,16 +50,11 @@ OBJS_PAR_DEBUG = $(BUILD_DIR)/$(DEBUG_DIR)/parallel_debug.o \
 all: $(TARGETS)
 
 sequential: $(TARGET_SEQ)
-sequential_no_filter: $(TARGET_SEQ_NO_FILTER)
 parallel: $(TARGET_PAR)
 sequential_debug: $(TARGET_SEQ_DEBUG)
 parallel_debug: $(TARGET_PAR_DEBUG)
 
 $(TARGET_SEQ): $(OBJS_SEQ)
-	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) -o $@ $^
-
-$(TARGET_SEQ_NO_FILTER): $(OBJS_SEQ_NO_FILTER)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $@ $^
 
@@ -106,4 +93,4 @@ debug: $(TARGET_PAR_DEBUG) $(TARGET_SEQ_DEBUG)
 clean:
 	rm -rf $(BIN_DIR) $(BUILD_DIR)
 
-.PHONY: all sequential sequential_no_filter parallel sequential_debug parallel_debug test run debug clean
+.PHONY: all sequential parallel sequential_debug parallel_debug test run debug clean
