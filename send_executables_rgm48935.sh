@@ -8,7 +8,7 @@ if [[ "$#" -lt 1 ]]; then
 fi
 
 HOSTS_FILE="hosts"
-REMOTE_DIR="~/local/rgm48935"
+REMOTE_DIR="~/local/rgm48935/MPI-Minimum-Spanning-Tree"
 EXECUTABLES=()
 
 while [[ "$#" -gt 0 ]]; do
@@ -51,12 +51,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   [[ -z "$line" ]] && continue
 
   host="${line%% *}"
-  echo "==> $host"
-
-  if ! ssh "$host" "mkdir -p $REMOTE_DIR"; then
-    echo "Failed to create remote directory on $host"
-    continue
-  fi
+  echo "==> $host -> ${REMOTE_DIR}/"
 
   for executable in "${EXECUTABLES[@]}"; do
     if rsync -avz "$executable" "${host}:${REMOTE_DIR}/"; then
