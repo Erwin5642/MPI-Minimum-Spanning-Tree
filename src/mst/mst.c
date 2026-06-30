@@ -71,14 +71,16 @@ void MST_ApplyComponentMinEdges(Edge *componentMinEdges, DisjointSetPool *disjoi
     if (edge.weight == GRAPH_NOTHING.weight)
       continue;
 
-    if (DisjointSet_Union(disjointSetPool, edge.source, edge.destination)) {
+    if (DisjointSet_Union(disjointSetPool, edge.source, edge.destination, edge.weight)) {
       mstEdgeList[(*mstCount)++] = edge;
     }
   }
 }
 
 void MST_Compute(const char *graphFilePath, unsigned int edgeCount, unsigned int nodeCount, Edge *mstEdgeList,
-                 unsigned int *mstCount) {
+                 unsigned int *mstCount, Weight *mstWeightSum) {
+    *mstWeightSum = 0;
+
 
   if (mkdir(".tmp", 0755) != 0 && errno != EEXIST) {
     fprintf(stderr, "Erro: MST: falha ao criar diretorio .tmp: %s\n", strerror(errno));
@@ -141,6 +143,8 @@ void MST_Compute(const char *graphFilePath, unsigned int edgeCount, unsigned int
 
     phase++;
   }
+
+  *mstWeightSum = disjointSetPool.componentSums[disjointSetPool.lastUnifiedRootId];
 
   DisjointSet_Finalize(&disjointSetPool);
   free(readBuffer);

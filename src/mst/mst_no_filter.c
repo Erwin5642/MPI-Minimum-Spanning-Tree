@@ -41,10 +41,14 @@ static void MST_ComputeComponentMinEdgesNoFilter(FILE *readFile, Edge *readBuffe
 }
 
 void MST_ComputeNoFilter(const char *graphFilePath, unsigned int edgeCount, unsigned int nodeCount, Edge *mstEdgeList,
-                         unsigned int *mstCount) {
+                         unsigned int *mstCount, Weight *mstWeightSum) {
+  if (mstWeightSum) {
+    *mstWeightSum = 0;
+  }
+
   DisjointSetPool disjointSetPool;
   if (!DisjointSet_Initialize(&disjointSetPool, nodeCount)) {
-    fprintf(stderr, "Erro: MST (NoFilter): falha ao inicializar conjunto disjunto\n");
+    fprintf(stderr, "Erro: MST: falha ao inicializar conjunto disjunto\n");
     return;
   }
 
@@ -52,7 +56,7 @@ void MST_ComputeNoFilter(const char *graphFilePath, unsigned int edgeCount, unsi
   Edge *readBuffer = malloc(sizeof(Edge) * BUFFER_EDGES);
 
   if (!componentMinEdges || !readBuffer) {
-    fprintf(stderr, "Erro: MST (NoFilter): falha ao alocar buffers principais: %s\n", strerror(errno));
+    fprintf(stderr, "Erro: MST: falha ao alocar buffers principais: %s\n", strerror(errno));
     if (componentMinEdges) {
       free(componentMinEdges);
     }
@@ -67,7 +71,7 @@ void MST_ComputeNoFilter(const char *graphFilePath, unsigned int edgeCount, unsi
   while (disjointSetPool.componentCount > 1 && currentEdgeCount > 0) {
     FILE *readFile = fopen(graphFilePath, "rb");
     if (!readFile) {
-      fprintf(stderr, "Erro: MST (NoFilter): falha ao abrir arquivo de entrada: %s\n", strerror(errno));
+      fprintf(stderr, "Erro: MST: falha ao abrir arquivo de entrada: %s\n", strerror(errno));
       break;
     }
 
@@ -77,6 +81,7 @@ void MST_ComputeNoFilter(const char *graphFilePath, unsigned int edgeCount, unsi
 
     MST_ApplyComponentMinEdges(componentMinEdges, &disjointSetPool, nodeCount, mstEdgeList, mstCount);
   }
+  *mstWeightSum = disjointSetPool.componentSums[disjointSetPool.lastUnifiedRootId];
 
   DisjointSet_Finalize(&disjointSetPool);
   free(readBuffer);

@@ -5,10 +5,11 @@
 #include <string.h>
 
 #include "core/graph.h"
+#include "core/mst_output.h"
 #include "mpi/mst_mpi.h"
 #include "mpi/types.h"
 
-#define CHUNK_SIZE_MB 64
+#define CHUNK_SIZE_MB 16
 #define CHUNK_EDGES ((CHUNK_SIZE_MB * 1024 * 1024) / sizeof(Edge))
 
 void Parallel_ComputeCounts(unsigned int edgeCount, int mpiWorldSize, unsigned int *counts) {
@@ -126,7 +127,6 @@ int main(int argc, char **argv) {
   unsigned int edgeCount = atoi(argv[3]);
 
   MPI_Init(&argc, &argv);
-  double programStartTime = MPI_Wtime();
 
   MPI_Register_Datatypes();
 
@@ -134,10 +134,7 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpiWorldSize);
 
-  unsigned int localEdgeCount;
-  double distributionStartTime = MPI_Wtime();
-  Edge *localEdgeList = Parallel_DistributeEdges(graphFilePath, edgeCount, mpiRank, mpiWorldSize, &localEdgeCount);
-  double distributionElapsedSeconds = MPI_Wtime() - distributionStartTime;
+  double startTime = MPI_Wtime();
 
   Edge *mstEdgeList = malloc(sizeof(Edge) * (nodeCount - 1));
   if (!mstEdgeList) {
@@ -146,26 +143,35 @@ int main(int argc, char **argv) {
   }
   unsigned int mstCount = 0;
 
-  double mstStartTime = MPI_Wtime();
-  MST_ComputeParallel(localEdgeList, &localEdgeCount, nodeCount, mstEdgeList, &mstCount);
-  double mstElapsedSeconds = MPI_Wtime() - mstStartTime;
+  unsigned int localEdgeCount;
+  double communicationStartTime = MPI_Wtime();
+  Edge *localEdgeList = Parallel_DistributeEdges(graphFilePath, edgeCount, mpiRank, mpiWorldSize, &localEdgeCount);
+  double communicationElapsedSeconds = MPI_Wtime() - communicationStartTime;
+  Weight mstWeightSum = 0;
+  double mstComputeStartTime = MPI_Wtime();
+  MST_ComputeParallel(localEdgeList, &localEdgeCount, nodeCount, mstEdgeList, &mstCount, &mstWeightSum);
+  double mstComputeElapsedSeconds = MPI_Wtime() - mstComputeStartTime;
 
-  double programElapsedSeconds = MPI_Wtime() - programStartTime;
-  printf("[rank=%d] Tempo de distribuicao: %f segundos\n", mpiRank, distributionElapsedSeconds);
-  printf("[rank=%d] Tempo do MST: %f segundos\n", mpiRank, mstElapsedSeconds);
-  printf("[rank=%d] Tempo total do programa: %f segundos\n", mpiRank, programElapsedSeconds);
+  double elapsedSeconds = MPI_Wtime() - startTime;
+  MPI_Barrier(MPI_COMM_WORLD);
+  printf("Rank: %d Tempo de comunicação: %lf segundos\n", mpiRank, communicationElapsedSeconds);
+  MPI_Barrier(MPI_COMM_WORLD);
+  printf("Rank: %d Tempo de computação MST: %lf segundos\n", mpiRank, mstComputeElapsedSeconds);
+  MPI_Barrier(MPI_COMM_WORLD);
 
   if (mpiRank == 0) {
-    long double mstWeightSum = 0;
     printf("===== MST Computada (Paralela) =====\n");
-    for (unsigned int mstEdgeId = 0; mstEdgeId < mstCount; mstEdgeId++) {
-      mstWeightSum += mstEdgeList[mstEdgeId].weight;
-    }
-
     printf("Total de arestas na MST: %u\n", mstCount);
     printf("Contagem esperada: %u\n", nodeCount - 1);
-    printf("Soma: %Lf\n", mstWeightSum);
-    printf("Resolução temporal: %e\n", MPI_Wtick());
+    printf("Soma: %.17g\n", mstWeightSum);
+    printf("Tempo de execução: %f segundos\n", elapsedSeconds);
+    if (!MST_Output_WriteToTxt("mst_parallel.txt", mstEdgeList, mstCount)) {
+      free(localEdgeList);
+      free(mstEdgeList);
+      MPI_Free_Datatypes();
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
   }
 
   free(localEdgeList);

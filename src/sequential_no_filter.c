@@ -5,6 +5,7 @@
 #include <time.h>
 
 #include "core/graph.h"
+#include "core/mst_output.h"
 #include "mst/mst.h"
 
 int main(int argc, char **argv) {
@@ -17,31 +18,31 @@ int main(int argc, char **argv) {
   unsigned int nodeCount = atoi(argv[2]);
   unsigned int edgeCount = atoi(argv[3]);
 
+  clock_t startTime = clock();
+
   Edge *mstEdgeList = malloc(sizeof(Edge) * (nodeCount - 1));
   if (!mstEdgeList) {
-    fprintf(stderr, "Erro: Sequential (NoFilter): falha ao alocar árvore geradora mínima: %s\n", strerror(errno));
+    fprintf(stderr, "Erro: Sequential: falha ao alocar árvore geradora mínima: %s\n", strerror(errno));
     exit(EXIT_FAILURE);
   }
 
   unsigned int mstCount = 0;
 
-  clock_t startTime = clock();
-
-  MST_ComputeNoFilter(graphFilePath, edgeCount, nodeCount, mstEdgeList, &mstCount);
+  Weight mstWeightSum = 0;
+  MST_ComputeNoFilter(graphFilePath, edgeCount, nodeCount, mstEdgeList, &mstCount, &mstWeightSum);
 
   clock_t endTime = clock();
   double elapsedSeconds = ((double)(endTime - startTime)) / CLOCKS_PER_SEC;
 
-  long double mstWeightSum = 0;
-  printf("===== MST Computada (Sequencial Sem Filtro) =====\n");
-  for (unsigned int mstEdgeId = 0; mstEdgeId < mstCount; mstEdgeId++) {
-    mstWeightSum += mstEdgeList[mstEdgeId].weight;
-  }
-
+  printf("===== MST Computada =====\n");
   printf("Total de arestas na MST: %u\n", mstCount);
   printf("Contagem esperada: %u\n", nodeCount - 1);
-  printf("Soma: %Lf\n", mstWeightSum);
+  printf("Soma: %.17g\n", mstWeightSum);
   printf("Tempo de execução (CPU): %f segundos\n", elapsedSeconds);
+  if (!MST_Output_WriteToTxt("mst_sequential.txt", mstEdgeList, mstCount)) {
+    free(mstEdgeList);
+    exit(EXIT_FAILURE);
+  }
 
   free(mstEdgeList);
 

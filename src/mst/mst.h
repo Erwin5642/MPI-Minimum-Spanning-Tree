@@ -15,8 +15,8 @@ void MST_ApplyComponentMinEdges(Edge *componentMinEdges, DisjointSetPool *disjoi
                                 Edge *mstEdgeList, unsigned int *mstCount);
 
 void MST_Compute(const char *graphFilePath, unsigned int edgeCount, unsigned int nodeCount, Edge *mstEdgeList,
-                 unsigned int *mstCount);
+                 unsigned int *mstCount, Weight *mstWeightSum);
 void MST_ComputeNoFilter(const char *graphFilePath, unsigned int edgeCount, unsigned int nodeCount, Edge *mstEdgeList,
-                         unsigned int *mstCount);
+                         unsigned int *mstCount, Weight *mstWeightSum);
 
 #endif

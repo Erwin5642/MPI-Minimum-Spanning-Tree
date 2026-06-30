@@ -9,6 +9,8 @@
 typedef struct {
   NodeId *parentIds;
   unsigned int *rankValues;
+  Weight *componentSums;
+  NodeId lastUnifiedRootId;
   unsigned int nodeCount;
   unsigned int componentCount;
 } DisjointSetPool;
@@ -16,6 +18,7 @@ typedef struct {
 bool DisjointSet_Initialize(DisjointSetPool *pool, const unsigned int nodeCount);
 void DisjointSet_Finalize(DisjointSetPool *pool);
 NodeId DisjointSet_Find(DisjointSetPool *pool, const NodeId nodeId);
-bool DisjointSet_Union(DisjointSetPool *pool, const NodeId firstNodeId, const NodeId secondNodeId);
+bool DisjointSet_Union(DisjointSetPool *pool, const NodeId firstNodeId, const NodeId secondNodeId,
+                       const Weight edgeWeight);
 
 #endif

@@ -8,14 +8,19 @@
 bool DisjointSet_Initialize(DisjointSetPool *pool, const unsigned int nodeCount) {
   pool->nodeCount = nodeCount;
   pool->componentCount = nodeCount;
+  pool->lastUnifiedRootId = GRAPH_NODE_ID_MAX;
   pool->rankValues = calloc(nodeCount, sizeof(unsigned int));
+  pool->componentSums = calloc(nodeCount, sizeof(Weight));
   pool->parentIds = malloc(sizeof(NodeId) * nodeCount);
 
-  if (!pool->rankValues || !pool->parentIds) {
+  if (!pool->rankValues || !pool->componentSums || !pool->parentIds) {
     fprintf(stderr, "Erro: DisjointSet: falha ao alocar memória: %s\n", strerror(errno));
     free(pool->rankValues);
+    free(pool->componentSums);
     free(pool->parentIds);
-    pool->parentIds = pool->rankValues = NULL;
+    pool->parentIds = NULL;
+    pool->rankValues = NULL;
+    pool->componentSums = NULL;
     return false;
   }
 
@@ -31,9 +36,13 @@ bool DisjointSet_Initialize(DisjointSetPool *pool, const unsigned int nodeCount)
 void DisjointSet_Finalize(DisjointSetPool *pool) {
   pool->nodeCount = 0;
   pool->componentCount = 0;
+  pool->lastUnifiedRootId = GRAPH_NODE_ID_MAX;
   free(pool->rankValues);
+  free(pool->componentSums);
   free(pool->parentIds);
-  pool->parentIds = pool->rankValues = NULL;
+  pool->parentIds = NULL;
+  pool->rankValues = NULL;
+  pool->componentSums = NULL;
 }
 
 NodeId DisjointSet_Find(DisjointSetPool *pool, const NodeId nodeId) {
@@ -48,7 +57,8 @@ NodeId DisjointSet_Find(DisjointSetPool *pool, const NodeId nodeId) {
   return currentNodeId;
 }
 
-bool DisjointSet_Union(DisjointSetPool *pool, const NodeId firstNodeId, const NodeId secondNodeId) {
+bool DisjointSet_Union(DisjointSetPool *pool, const NodeId firstNodeId, const NodeId secondNodeId,
+                       const Weight edgeWeight) {
   if (firstNodeId >= pool->nodeCount || secondNodeId >= pool->nodeCount) {
     fprintf(stderr, "Erro: DisjointSet: NodeId inválido passado para Union: %u, %u\n", firstNodeId, secondNodeId);
     return false;
@@ -62,6 +72,7 @@ bool DisjointSet_Union(DisjointSetPool *pool, const NodeId firstNodeId, const No
 
   NodeId *parentIds = pool->parentIds;
   unsigned int *rankValues = pool->rankValues;
+  Weight *componentSums = pool->componentSums;
 
   if (rankValues[firstRootId] < rankValues[secondRootId]) {
     NodeId tempRootId = firstRootId;
@@ -70,6 +81,8 @@ bool DisjointSet_Union(DisjointSetPool *pool, const NodeId firstNodeId, const No
   }
 
   parentIds[secondRootId] = firstRootId;
+  componentSums[firstRootId] = componentSums[firstRootId] + edgeWeight + componentSums[secondRootId];
+  pool->lastUnifiedRootId = firstRootId;
 
   if (rankValues[firstRootId] == rankValues[secondRootId]) {
     rankValues[firstRootId]++;

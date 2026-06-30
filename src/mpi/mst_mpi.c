@@ -50,7 +50,7 @@ void MST_ApplyComponentMinEdgesParallel(Edge *componentMinEdges, DisjointSetPool
     if (edge.weight == GRAPH_NOTHING.weight)
       continue;
 
-    if (DisjointSet_Union(disjointSetPool, edge.source, edge.destination)) {
+    if (DisjointSet_Union(disjointSetPool, edge.source, edge.destination, edge.weight)) {
       mstEdgeList[(*mstCount)++] = edge;
     }
   }
@@ -68,7 +68,11 @@ void MST_ReduceMinEdge(void *inBuffer, void *outBuffer, int *length, MPI_Datatyp
 }
 
 void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int nodeCount, Edge *mstEdgeList,
-                         unsigned int *mstCount) {
+                         unsigned int *mstCount, Weight *mstWeightSum) {
+  if (mstWeightSum) {
+    *mstWeightSum = 0;
+  }
+
   int mpiWorldSize;
   MPI_Comm_size(MPI_COMM_WORLD, &mpiWorldSize);
 
@@ -133,6 +137,10 @@ void MST_ComputeParallel(Edge *edgeList, unsigned int *edgeCount, unsigned int n
     }
     
     MST_ApplyComponentMinEdgesParallel(componentMinEdges, &disjointSetPool, nodeCount, mstEdgeList, mstCount);
+  }
+
+  if (mstWeightSum && disjointSetPool.lastUnifiedRootId != GRAPH_NODE_ID_MAX) {
+    *mstWeightSum = disjointSetPool.componentSums[disjointSetPool.lastUnifiedRootId];
   }
 
   free(globalValidEdges);
