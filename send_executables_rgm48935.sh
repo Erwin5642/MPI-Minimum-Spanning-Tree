@@ -9,6 +9,7 @@ fi
 
 HOSTS_FILE="hosts"
 REMOTE_DIR="~/local/rgm48935/MPI-Minimum-Spanning-Tree"
+REMOTE_BIN_DIR="${REMOTE_DIR}/bin"
 EXECUTABLES=()
 
 while [[ "$#" -gt 0 ]]; do
@@ -51,10 +52,15 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   [[ -z "$line" ]] && continue
 
   host="${line%% *}"
-  echo "==> $host -> ${REMOTE_DIR}/"
+  echo "==> $host -> ${REMOTE_BIN_DIR}/"
+
+  if ! ssh "$host" "mkdir -p ${REMOTE_BIN_DIR}"; then
+    echo "  failed to create remote directory ${REMOTE_BIN_DIR}"
+    continue
+  fi
 
   for executable in "${EXECUTABLES[@]}"; do
-    if rsync -avz "$executable" "${host}:${REMOTE_DIR}/"; then
+    if rsync -avz "$executable" "${host}:${REMOTE_BIN_DIR}/"; then
       echo "  sent $(basename "$executable")"
     else
       echo "  failed $(basename "$executable")"
