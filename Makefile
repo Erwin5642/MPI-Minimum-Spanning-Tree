@@ -10,7 +10,7 @@ DEBUG_GRAPH = dados_entrada_sequencial 1965206 2769244
 DEBUG_PAR_LOG = debug_parallel.log
 DEBUG_SEQ_LOG = debug_sequential.log
 GRAPH = data/setup_cod_paralelos/graph.bin 10000000 800000000
-CFLAGS = -Wall -Wextra -pedantic -O2
+CFLAGS = -Wall -Wextra -pedantic
 MPIRUN_FLAGS = --mca btl_tcp_if_include 172.26.1.0/24
 DEBUG_DIR = debug
 
