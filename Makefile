@@ -23,9 +23,10 @@ parBIN ?= $(TARGET_PAR)
 
 TARGET_SEQ = $(BIN_DIR)/sequential
 TARGET_PAR = $(BIN_DIR)/parallel
+TARGET_PAR_ALL_REDUCE = $(BIN_DIR)/parallel_all_reduce
 TARGET_SEQ_DEBUG = $(BIN_DIR)/sequential_debug
 TARGET_PAR_DEBUG = $(BIN_DIR)/parallel_debug
-TARGETS = $(TARGET_SEQ) $(TARGET_PAR)
+TARGETS = $(TARGET_SEQ) $(TARGET_PAR) $(TARGET_PAR_ALL_REDUCE)
 
 OBJS_SEQ = $(BUILD_DIR)/sequential.o \
            $(BUILD_DIR)/core/graph.o \
@@ -40,6 +41,14 @@ OBJS_PAR = $(BUILD_DIR)/parallel.o \
            $(BUILD_DIR)/mst/mst.o \
            $(BUILD_DIR)/mpi/mst_mpi.o \
            $(BUILD_DIR)/mpi/types.o
+
+OBJS_PAR_ALL_REDUCE = $(BUILD_DIR)/parallel_all_reduce.o \
+                      $(BUILD_DIR)/core/graph.o \
+                      $(BUILD_DIR)/core/disjointset.o \
+                      $(BUILD_DIR)/core/mst_output.o \
+                      $(BUILD_DIR)/mst/mst.o \
+                      $(BUILD_DIR)/mpi/mst_mpi_all_reduce.o \
+                      $(BUILD_DIR)/mpi/types.o
 
 OBJS_SEQ_DEBUG = $(BUILD_DIR)/$(DEBUG_DIR)/sequential_debug.o \
                  $(BUILD_DIR)/$(DEBUG_DIR)/mst_debug.o \
@@ -58,6 +67,7 @@ all: $(TARGETS)
 
 sequential: $(TARGET_SEQ)
 parallel: $(TARGET_PAR)
+parallel_all_reduce: $(TARGET_PAR_ALL_REDUCE)
 sequential_debug: $(TARGET_SEQ_DEBUG)
 parallel_debug: $(TARGET_PAR_DEBUG)
 
@@ -66,6 +76,10 @@ $(TARGET_SEQ): $(OBJS_SEQ)
 	$(CC) $(CFLAGS) -o $@ $^
 
 $(TARGET_PAR): $(OBJS_PAR)
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $^
+
+$(TARGET_PAR_ALL_REDUCE): $(OBJS_PAR_ALL_REDUCE)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $@ $^
 
@@ -97,17 +111,7 @@ debug: $(TARGET_PAR_DEBUG) $(TARGET_SEQ_DEBUG)
 	$(RUN) -np 4 ./$(TARGET_PAR_DEBUG) $(DEBUG_GRAPH) > $(DEBUG_PAR_LOG) 2>&1
 	./$(TARGET_SEQ_DEBUG) $(DEBUG_GRAPH) > $(DEBUG_SEQ_LOG) 2>&1
 
-send_parallel: $(TARGET_PAR)
-	@set -e; \
-	mkdir -p "$(REMOTE_PATH_LOCAL)/bin"; \
-	[ "$$(readlink -f $(parBIN))" = "$$(readlink -f $(REMOTE_PATH_LOCAL)/bin/$$(basename $(parBIN)))" ] || cp -f $(parBIN) "$(REMOTE_PATH_LOCAL)/bin/"; \
-	for m in $(MAQUINAS); do \
-		echo "--- $$m ---"; \
-		ssh $(SCP_OPTS) "$(RGM)@$$m" "mkdir -p $(REMOTE_PATH_REMOTE)/bin"; \
-		scp $(SCP_OPTS) $(parBIN) "$(RGM)@$$m:$(REMOTE_PATH_REMOTE)/bin/"; \
-	done
-
 clean:
 	rm -rf $(BIN_DIR) $(BUILD_DIR)
 
-.PHONY: all sequential parallel sequential_debug parallel_debug test run debug send_parallel clean
+.PHONY: all sequential parallel parallel_all_reduce sequential_debug parallel_debug test run debug send_parallel clean

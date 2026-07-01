@@ -2,73 +2,67 @@
 
 set -u
 
+# Configuration
 HOSTS_FILE="${1:-hosts}"
+SRC_FILE="/home/local/rgm48935/MPI-Minimum-Spanning-Tree/bin/parallel"
+DEST_DIR="/home/local/rgm48935/MPI-Minimum-Spanning-Tree/bin"
 SSH_TIMEOUT="${SSH_TIMEOUT:-5}"
-# Define o caminho padrão para a chave (preferência por Ed25519, mais moderna e segura)
-KEY_FILE="$HOME/.ssh/id_ed25519"
 
-if [[ ! -f "$HOSTS_FILE" ]]; then
-  echo "Erro: Arquivo de hosts '$HOSTS_FILE' não encontrado."
+# SSH & SCP Options to bypass interactive prompts and host-key checks completely
+SSH_OPTS="-n -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=$SSH_TIMEOUT"
+SCP_OPTS="-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=$SSH_TIMEOUT"
+
+# Check if the local executable actually exists before starting
+if [[ ! -f "$SRC_FILE" ]]; then
+  echo "Erro: Local executable '$SRC_FILE' not found."
   exit 1
 fi
 
-# 1. Garante que o nó mestre possui um par de chaves SSH
-if [[ ! -f "$KEY_FILE" && ! -f "$HOME/.ssh/id_rsa" ]]; then
-  echo "Nenhuma chave SSH encontrada na máquina local."
-  echo "Gerando uma nova chave Ed25519 (sem senha) para o cluster..."
-  mkdir -p "$HOME/.ssh"
-  chmod 700 "$HOME/.ssh"
-  ssh-keygen -t ed25519 -N "" -f "$KEY_FILE"
+# Check if host file exists
+if [[ ! -f "$HOSTS_FILE" ]]; then
+  echo "Erro: Hosts file '$HOSTS_FILE' not found."
+  exit 1
 fi
 
+echo "Starting deployment of 'parallel' to the cluster (Blind-mode enabled)..."
+echo "----------------------------------------------------------------------"
+
 total=0
-ok=0
-fail=0
-fixed=0
+success=0
+failed=0
 
 while IFS= read -r line || [[ -n "$line" ]]; do
+  # Strip comments and whitespace
   line="${line%%#*}"
   line="$(echo "$line" | xargs)"
   [[ -z "$line" ]] && continue
 
-  host="${line%% *}"
+  host="$line"
   total=$((total + 1))
+  
+  echo "[Node] $host"
 
-  # Testa a conexão sem senha
-  if ssh -o BatchMode=yes -o ConnectTimeout="$SSH_TIMEOUT" "$host" "true" >/dev/null 2>&1; then
-    echo "[OK] $host (Acesso sem senha já configurado)"
-    ok=$((ok + 1))
-  else
-    echo "[Tentando Corrigir] $host não aceita SSH sem senha. Iniciando pareamento..."
+  # Step 1: Create directory tree on the remote node securely
+  if ssh $SSH_OPTS "$host" "mkdir -p '$DEST_DIR'" >/dev/null 2>&1; then
     
-    # O ssh-copy-id vai pedir a senha do usuário remoto para copiar a chave pública
-    if ssh-copy-id -o ConnectTimeout="$SSH_TIMEOUT" "$host"; then
-      
-      # Valida se a cópia realmente resolveu o problema
-      if ssh -o BatchMode=yes -o ConnectTimeout="$SSH_TIMEOUT" "$host" "true" >/dev/null 2>&1; then
-        echo "[CORRIGIDO] $host agora está acessível sem senha!"
-        ok=$((ok + 1))
-        fixed=$((fixed + 1))
-      else
-        echo "[ERRO] Chave copiada para $host, mas o teste de conexão ainda falhou."
-        fail=$((fail + 1))
-      fi
+    # Step 2: Copy the file using scp
+    if scp $SCP_OPTS "$SRC_FILE" "$host:$DEST_DIR/" < /dev/null >/dev/null 2>&1; then
+      echo "  -> [OK] Executable deployed successfully."
+      success=$((success + 1))
     else
-      echo "[FALHA] Não foi possível enviar a chave para $host (Senha incorreta ou timeout)."
-      fail=$((fail + 1))
+      echo "  -> [FAIL] mkdir succeeded, but scp transfer failed."
+      failed=$((failed + 1))
     fi
+
+  else
+    echo "  -> [FAIL] Could not connect or create directory structure."
+    failed=$((failed + 1))
   fi
 done < "$HOSTS_FILE"
 
-echo
-echo "=== Resumo ==="
-echo "Total de nós analisados: $total"
-echo "Acessíveis / Corrigidos: $ok (Sendo $fixed corrigidos agora)"
-echo "Falhas restantes:        $fail"
+echo "----------------------------------------------------------------------"
+echo "Deployment Summary: Total=$total | Success=$success | Failed=$failed"
 
-if [[ "$fail" -gt 0 ]]; then
-  echo "Aviso: O cluster possui nós problemáticos. Corrija-os antes de rodar o mpirun."
+if [[ "$failed" -gt 0 ]]; then
   exit 1
-else
-  echo "Sucesso! Todos os nós estão prontos para o OpenMPI."
 fi

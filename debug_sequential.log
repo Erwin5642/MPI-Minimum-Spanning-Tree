@@ -1,0 +1,36 @@
+[progresso][sequencial-debug] Iniciando fase 0: componentes=1965206 arestas=2769244
+[progresso][sequencial-debug] Fase 0: arestas após filtragem=2769244
+[progresso][sequencial-debug] Fase 0: unioes aplicadas=1412422 componentes=552784 mstCount=1412422
+[progresso][sequencial-debug] Iniciando fase 1: componentes=552784 arestas=2769244
+[progresso][sequencial-debug] Fase 1: arestas após filtragem=1275432
+[progresso][sequencial-debug] Fase 1: unioes aplicadas=408407 componentes=144377 mstCount=1820829
+[progresso][sequencial-debug] Iniciando fase 2: componentes=144377 arestas=1275432
+[progresso][sequencial-debug] Fase 2: arestas após filtragem=624542
+[progresso][sequencial-debug] Fase 2: unioes aplicadas=109926 componentes=34451 mstCount=1930755
+[progresso][sequencial-debug] Iniciando fase 3: componentes=34451 arestas=624542
+[progresso][sequencial-debug] Fase 3: arestas após filtragem=308425
+[progresso][sequencial-debug] Fase 3: unioes aplicadas=26644 componentes=7807 mstCount=1957399
+[progresso][sequencial-debug] Iniciando fase 4: componentes=7807 arestas=308425
+[progresso][sequencial-debug] Fase 4: arestas após filtragem=152494
+[progresso][sequencial-debug] Fase 4: unioes aplicadas=6082 componentes=1725 mstCount=1963481
+[progresso][sequencial-debug] Iniciando fase 5: componentes=1725 arestas=152494
+[progresso][sequencial-debug] Fase 5: arestas após filtragem=74640
+[progresso][sequencial-debug] Fase 5: unioes aplicadas=1350 componentes=375 mstCount=1964831
+[progresso][sequencial-debug] Iniciando fase 6: componentes=375 arestas=74640
+[progresso][sequencial-debug] Fase 6: arestas após filtragem=35506
+[progresso][sequencial-debug] Fase 6: unioes aplicadas=298 componentes=77 mstCount=1965129
+[progresso][sequencial-debug] Iniciando fase 7: componentes=77 arestas=35506
+[progresso][sequencial-debug] Fase 7: arestas após filtragem=14030
+[progresso][sequencial-debug] Fase 7: unioes aplicadas=62 componentes=15 mstCount=1965191
+[progresso][sequencial-debug] Iniciando fase 8: componentes=15 arestas=14030
+[progresso][sequencial-debug] Fase 8: arestas após filtragem=4135
+[progresso][sequencial-debug] Fase 8: unioes aplicadas=12 componentes=3 mstCount=1965203
+[progresso][sequencial-debug] Iniciando fase 9: componentes=3 arestas=4135
+[progresso][sequencial-debug] Fase 9: arestas após filtragem=971
+[progresso][sequencial-debug] Fase 9: unioes aplicadas=2 componentes=1 mstCount=1965205
+[progresso][sequencial-debug] Finalizado: fases=10 componentes=1 mstCount=1965205
+===== MST Computada (Sequencial Debug) =====
+Total de arestas na MST: 1965205
+Contagem esperada: 1965205
+Soma: 3222179092953490
+Tempo de execução (CPU): 1.357264 segundos

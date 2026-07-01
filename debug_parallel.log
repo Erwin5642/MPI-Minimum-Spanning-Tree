@@ -1,0 +1,117 @@
+[progresso][distribuicao-debug][rank=1] arestasLocaisAtribuidas=692311 arestasTotais=2769244 ranks=4
+[progresso][distribuicao-debug][rank=0] arestasLocaisAtribuidas=692311 arestasTotais=2769244 ranks=4
+[progresso][distribuicao-debug][rank=2] arestasLocaisAtribuidas=692311 arestasTotais=2769244 ranks=4
+[progresso][distribuicao-debug][rank=3] arestasLocaisAtribuidas=692311 arestasTotais=2769244 ranks=4
+[progresso][distribuicao-debug][rank=0] arestasLocaisCarregadas=692311/2769244
+[progresso][distribuicao-debug][origem=0][destino=1] chunk=1 arestasEnviadas=692311/692311
+[progresso][distribuicao-debug][rank=1] chunkRecebido=1 arestasRecebidas=692311/692311
+[progresso][distribuicao-debug][rank=1] distribuicao concluida com 692311 arestas locais
+[progresso][paralelo-debug][rank=1] Início da MST: componentes=1965206 arestasLocais=692311 ranks=4
+[progresso][distribuicao-debug][origem=0][destino=2] chunk=1 arestasEnviadas=692311/692311
+[progresso][distribuicao-debug][rank=2] chunkRecebido=1 arestasRecebidas=692311/692311
+[progresso][distribuicao-debug][rank=2] distribuicao concluida com 692311 arestas locais
+[progresso][distribuicao-debug][origem=0][destino=3] chunk=1 arestasEnviadas=692311/692311
+[progresso][paralelo-debug][rank=2] Início da MST: componentes=1965206 arestasLocais=692311 ranks=4
+[progresso][distribuicao-debug][rank=3] chunkRecebido=1 arestasRecebidas=692311/692311
+[progresso][distribuicao-debug][rank=3] distribuicao concluida com 692311 arestas locais
+[progresso][distribuicao-debug][rank=0] envio para todos os ranks concluido
+[progresso][distribuicao-debug][rank=0] distribuicao concluida com 692311 arestas locais
+[progresso][paralelo-debug][rank=0] Início da MST: componentes=1965206 arestasLocais=692311 ranks=4
+[progresso][paralelo-debug][rank=3] Início da MST: componentes=1965206 arestasLocais=692311 ranks=4
+[progresso][paralelo-debug][rank=2][fase=0] componentes=1965206 arestasLocais=692311 validasLocais=1066431 totalValidas=4266398
+[progresso][paralelo-debug][rank=1][fase=0] componentes=1965206 arestasLocais=692311 validasLocais=1066840 totalValidas=4266398
+[progresso][paralelo-debug][rank=0][fase=0] componentes=1965206 arestasLocais=692311 validasLocais=1067191 totalValidas=4266398
+[progresso][paralelo-debug][rank=3][fase=0] componentes=1965206 arestasLocais=692311 validasLocais=1065936 totalValidas=4266398
+[progresso][paralelo-debug][rank=0][fase=0] unioesAplicadas=1412422 componentesApos=552784 mstCount=1412422
+[progresso][paralelo-debug][rank=1][fase=0] unioesAplicadas=1412422 componentesApos=552784 mstCount=1412422
+[progresso][paralelo-debug][rank=3][fase=0] unioesAplicadas=1412422 componentesApos=552784 mstCount=1412422
+[progresso][paralelo-debug][rank=2][fase=0] unioesAplicadas=1412422 componentesApos=552784 mstCount=1412422
+[progresso][paralelo-debug][rank=0][fase=1] componentes=552784 arestasLocais=692311 validasLocais=378589 totalValidas=1515205
+[progresso][paralelo-debug][rank=1][fase=1] componentes=552784 arestasLocais=692311 validasLocais=378617 totalValidas=1515205
+[progresso][paralelo-debug][rank=2][fase=1] componentes=552784 arestasLocais=692311 validasLocais=378752 totalValidas=1515205
+[progresso][paralelo-debug][rank=3][fase=1] componentes=552784 arestasLocais=692311 validasLocais=379247 totalValidas=1515205
+[progresso][paralelo-debug][rank=1][fase=1] unioesAplicadas=408407 componentesApos=144377 mstCount=1820829
+[progresso][paralelo-debug][rank=0][fase=1] unioesAplicadas=408407 componentesApos=144377 mstCount=1820829
+[progresso][paralelo-debug][rank=2][fase=1] unioesAplicadas=408407 componentesApos=144377 mstCount=1820829
+[progresso][paralelo-debug][rank=3][fase=1] unioesAplicadas=408407 componentesApos=144377 mstCount=1820829
+[progresso][paralelo-debug][rank=1][fase=2] componentes=144377 arestasLocais=318624 validasLocais=119562 totalValidas=479365
+[progresso][paralelo-debug][rank=3][fase=2] componentes=144377 arestasLocais=319092 validasLocais=120324 totalValidas=479365
+[progresso][paralelo-debug][rank=0][fase=2] componentes=144377 arestasLocais=318572 validasLocais=119785 totalValidas=479365
+[progresso][paralelo-debug][rank=2][fase=2] componentes=144377 arestasLocais=319144 validasLocais=119694 totalValidas=479365
+[progresso][paralelo-debug][rank=1][fase=2] unioesAplicadas=109926 componentesApos=34451 mstCount=1930755
+[progresso][paralelo-debug][rank=0][fase=2] unioesAplicadas=109926 componentesApos=34451 mstCount=1930755
+[progresso][paralelo-debug][rank=3][fase=2] unioesAplicadas=109926 componentesApos=34451 mstCount=1930755
+[progresso][paralelo-debug][rank=2][fase=2] unioesAplicadas=109926 componentesApos=34451 mstCount=1930755
+[progresso][paralelo-debug][rank=1][fase=3] componentes=34451 arestasLocais=155486 validasLocais=32075 totalValidas=128797
+[progresso][paralelo-debug][rank=3][fase=3] componentes=34451 arestasLocais=156124 validasLocais=32338 totalValidas=128797
+[progresso][paralelo-debug][rank=2][fase=3] componentes=34451 arestasLocais=156418 validasLocais=32175 totalValidas=128797
+[progresso][paralelo-debug][rank=0][fase=3] componentes=34451 arestasLocais=156514 validasLocais=32209 totalValidas=128797
+[progresso][paralelo-debug][rank=3][fase=3] unioesAplicadas=26644 componentesApos=7807 mstCount=1957399
+[progresso][paralelo-debug][rank=2][fase=3] unioesAplicadas=26644 componentesApos=7807 mstCount=1957399
+[progresso][paralelo-debug][rank=1][fase=3] unioesAplicadas=26644 componentesApos=7807 mstCount=1957399
+[progresso][paralelo-debug][rank=0][fase=3] unioesAplicadas=26644 componentesApos=7807 mstCount=1957399
+[progresso][paralelo-debug][rank=0][fase=4] componentes=7807 arestasLocais=77265 validasLocais=7653 totalValidas=30711
+[progresso][paralelo-debug][rank=1][fase=4] componentes=7807 arestasLocais=76585 validasLocais=7676 totalValidas=30711
+[progresso][paralelo-debug][rank=3][fase=4] componentes=7807 arestasLocais=77293 validasLocais=7718 totalValidas=30711
+[progresso][paralelo-debug][rank=2][fase=4] componentes=7807 arestasLocais=77282 validasLocais=7664 totalValidas=30711
+[progresso][paralelo-debug][rank=1][fase=4] unioesAplicadas=6082 componentesApos=1725 mstCount=1963481
+[progresso][paralelo-debug][rank=0][fase=4] unioesAplicadas=6082 componentesApos=1725 mstCount=1963481
+[progresso][paralelo-debug][rank=2][fase=4] unioesAplicadas=6082 componentesApos=1725 mstCount=1963481
+[progresso][paralelo-debug][rank=3][fase=4] unioesAplicadas=6082 componentesApos=1725 mstCount=1963481
+[progresso][paralelo-debug][rank=1][fase=5] componentes=1725 arestasLocais=37829 validasLocais=1705 totalValidas=6843
+[progresso][paralelo-debug][rank=0][fase=5] componentes=1725 arestasLocais=38404 validasLocais=1708 totalValidas=6843
+[progresso][paralelo-debug][rank=2][fase=5] componentes=1725 arestasLocais=38127 validasLocais=1706 totalValidas=6843
+[progresso][paralelo-debug][rank=3][fase=5] componentes=1725 arestasLocais=38134 validasLocais=1724 totalValidas=6843
+[progresso][paralelo-debug][rank=1][fase=5] unioesAplicadas=1350 componentesApos=375 mstCount=1964831
+[progresso][paralelo-debug][rank=0][fase=5] unioesAplicadas=1350 componentesApos=375 mstCount=1964831
+[progresso][paralelo-debug][rank=3][fase=5] unioesAplicadas=1350 componentesApos=375 mstCount=1964831
+[progresso][paralelo-debug][rank=2][fase=5] unioesAplicadas=1350 componentesApos=375 mstCount=1964831
+[progresso][paralelo-debug][rank=1][fase=6] componentes=375 arestasLocais=18487 validasLocais=369 totalValidas=1482
+[progresso][paralelo-debug][rank=0][fase=6] componentes=375 arestasLocais=18856 validasLocais=369 totalValidas=1482
+[progresso][paralelo-debug][rank=3][fase=6] componentes=375 arestasLocais=18620 validasLocais=375 totalValidas=1482
+[progresso][paralelo-debug][rank=2][fase=6] componentes=375 arestasLocais=18677 validasLocais=369 totalValidas=1482
+[progresso][paralelo-debug][rank=0][fase=6] unioesAplicadas=298 componentesApos=77 mstCount=1965129
+[progresso][paralelo-debug][rank=1][fase=6] unioesAplicadas=298 componentesApos=77 mstCount=1965129
+[progresso][paralelo-debug][rank=3][fase=6] unioesAplicadas=298 componentesApos=77 mstCount=1965129
+[progresso][paralelo-debug][rank=2][fase=6] unioesAplicadas=298 componentesApos=77 mstCount=1965129
+[progresso][paralelo-debug][rank=1][fase=7] componentes=77 arestasLocais=8790 validasLocais=75 totalValidas=302
+[progresso][paralelo-debug][rank=0][fase=7] componentes=77 arestasLocais=8971 validasLocais=75 totalValidas=302
+[progresso][paralelo-debug][rank=3][fase=7] componentes=77 arestasLocais=8850 validasLocais=77 totalValidas=302
+[progresso][paralelo-debug][rank=2][fase=7] componentes=77 arestasLocais=8895 validasLocais=75 totalValidas=302
+[progresso][paralelo-debug][rank=0][fase=7] unioesAplicadas=62 componentesApos=15 mstCount=1965191
+[progresso][paralelo-debug][rank=1][fase=7] unioesAplicadas=62 componentesApos=15 mstCount=1965191
+[progresso][paralelo-debug][rank=3][fase=7] unioesAplicadas=62 componentesApos=15 mstCount=1965191
+[progresso][paralelo-debug][rank=2][fase=7] unioesAplicadas=62 componentesApos=15 mstCount=1965191
+[progresso][paralelo-debug][rank=1][fase=8] componentes=15 arestasLocais=3425 validasLocais=14 totalValidas=57
+[progresso][paralelo-debug][rank=3][fase=8] componentes=15 arestasLocais=3464 validasLocais=15 totalValidas=57
+[progresso][paralelo-debug][rank=0][fase=8] componentes=15 arestasLocais=3498 validasLocais=14 totalValidas=57
+[progresso][paralelo-debug][rank=2][fase=8] componentes=15 arestasLocais=3643 validasLocais=14 totalValidas=57
+[progresso][paralelo-debug][rank=0][fase=8] unioesAplicadas=12 componentesApos=3 mstCount=1965203
+[progresso][paralelo-debug][rank=1][fase=8] unioesAplicadas=12 componentesApos=3 mstCount=1965203
+[progresso][paralelo-debug][rank=3][fase=8] unioesAplicadas=12 componentesApos=3 mstCount=1965203
+[progresso][paralelo-debug][rank=2][fase=8] unioesAplicadas=12 componentesApos=3 mstCount=1965203
+[progresso][paralelo-debug][rank=3][fase=9] componentes=3 arestasLocais=1010 validasLocais=3 totalValidas=12
+[progresso][paralelo-debug][rank=1][fase=9] componentes=3 arestasLocais=1024 validasLocais=3 totalValidas=12
+[progresso][paralelo-debug][rank=0][fase=9] componentes=3 arestasLocais=1036 validasLocais=3 totalValidas=12
+[progresso][paralelo-debug][rank=2][fase=9] componentes=3 arestasLocais=1065 validasLocais=3 totalValidas=12
+[progresso][paralelo-debug][rank=1][fase=9] unioesAplicadas=2 componentesApos=1 mstCount=1965205
+[progresso][paralelo-debug][rank=1] Finalizado: fases=10 componentes=1 arestasLocaisFinais=229 mstCount=1965205
+[progresso][paralelo-debug][rank=0][fase=9] unioesAplicadas=2 componentesApos=1 mstCount=1965205
+[progresso][paralelo-debug][rank=0] Finalizado: fases=10 componentes=1 arestasLocaisFinais=232 mstCount=1965205
+[progresso][paralelo-debug][rank=3][fase=9] unioesAplicadas=2 componentesApos=1 mstCount=1965205
+[progresso][paralelo-debug][rank=3] Finalizado: fases=10 componentes=1 arestasLocaisFinais=258 mstCount=1965205
+[progresso][paralelo-debug][rank=2][fase=9] unioesAplicadas=2 componentesApos=1 mstCount=1965205
+[progresso][paralelo-debug][rank=2] Finalizado: fases=10 componentes=1 arestasLocaisFinais=252 mstCount=1965205
+Rank: 0 Tempo de comunicação: 0.059247 segundos
+Rank: 0 Tempo de computação MST: 2.080008 segundos
+===== MST Computada (Paralela Debug) =====
+Total de arestas na MST: 1965205
+Contagem esperada: 1965205
+Soma: 3222179092953490
+Tempo de execução: 2.139280 segundos
+Rank: 1 Tempo de comunicação: 0.022845 segundos
+Rank: 1 Tempo de computação MST: 2.119858 segundos
+Rank: 3 Tempo de comunicação: 0.058538 segundos
+Rank: 3 Tempo de computação MST: 2.099030 segundos
+Rank: 2 Tempo de comunicação: 0.040897 segundos
+Rank: 2 Tempo de computação MST: 2.116792 segundos

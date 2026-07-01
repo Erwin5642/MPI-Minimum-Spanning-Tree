@@ -1,0 +1,4 @@
+WRN 2026-06-30T15:14:49.251 ?.65138    server_start:199: Failed to start server: no such file or directory: /run/user/1000/
+WRN 2026-06-30T15:15:06.452 ?.65238    server_start:199: Failed to start server: no such file or directory: /run/user/1000/
+WRN 2026-06-30T15:15:16.434 ?.65335    server_start:199: Failed to start server: no such file or directory: /run/user/1000/
+WRN 2026-06-30T15:15:25.170 ?.65451    server_start:199: Failed to start server: no such file or directory: /run/user/1000/
