@@ -86,7 +86,6 @@ mpirun --hostfile hostfile -np 16 ./bin/parallel data/graph_example.txt
 
 ## Authors and Acknowledgments
 
-* **Author:** [João Vitor Antunes da Silva]
-* **Instructor:** [Rubens Barbosa Filho]
-* **Institution:** [Universidade Estadual de Mato Grosso do Sul (UEMS)]
-*
+* **Author:** João Vitor Antunes da Silva
+* **Instructor:** Rubens Barbosa Filho
+* **Institution:** Universidade Estadual de Mato Grosso do Sul (UEMS)
